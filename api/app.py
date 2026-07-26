@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import os
 import re
 from copy import copy
 from urllib.parse import urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_from_directory  # 👈 [send_from_directory 추가]
 from bleach import clean
 from bleach.css_sanitizer import CSSSanitizer
 
-app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+app = Flask(__name__, template_folder=BASE_DIR, static_folder=BASE_DIR)
 
 ALLOWED_DOMAINS = {
     "gall.dcinside.com",
@@ -279,7 +281,7 @@ def extract_post_body(url: str) -> dict[str, str | int]:
 
 @app.get("/")
 def index():
-    return render_template("index.html")
+    return send_from_directory(BASE_DIR, "index.html")
 
 
 @app.post("/api/extract")
