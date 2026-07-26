@@ -278,12 +278,6 @@ def extract_post_body(url: str) -> dict[str, str | int]:
         "image_count": image_count,
     }
 
-
-@app.get("/")
-def index():
-    return send_from_directory(BASE_DIR, "index.html")
-
-
 @app.post("/api/extract")
 def api_extract():
     try:

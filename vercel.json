@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/extract",
+      "destination": "/api/app"
+    },
+    {
       "source": "/extract",
       "destination": "/api/app"
     }
