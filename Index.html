@@ -1,0 +1,1730 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>본문 추출기</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #d8dde6;
+      --primary: #2563eb;
+      --danger: #dc2626;
+      --success: #15803d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .wrap {
+      width: min(980px, calc(100% - 32px));
+      margin: 32px auto;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      padding: 22px;
+    }
+
+    h1 { margin: 0 0 8px; font-size: 24px; }
+
+    .desc { margin: 0 0 20px; color: var(--muted); line-height: 1.6; }
+
+    .row { display: flex; gap: 10px; }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 13px 14px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .14); }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--primary);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    button.secondary { background: #374151; }
+
+    button.success { background: var(--success); }
+
+    button.toggle-off { background: #6b7280; }
+
+    button:disabled { opacity: .55; cursor: wait; }
+
+    .status { margin-top: 3px; min-height: 24px; color: var(--muted); }
+
+    .status.error { color: var(--danger); font-weight: 700; }
+
+    .result { margin-top: 5px; display: none; }
+
+    .title {
+      font-weight: 800;
+      font-size: 18px;
+      margin-top: 12px;
+      word-break: keep-all;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    .preview {
+      min-height: 260px;
+      max-height: 62vh;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      background: #fff;
+      line-height: 1.7;
+      white-space: normal;
+    }
+
+    .preview img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 8px 0;
+      border-radius: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 210px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      display: none;
+    }
+
+    .tabs { display: flex; gap: 8px; margin-top: 5px; margin-bottom: 5; flex-wrap: wrap; }
+
+    .tab {
+      background: #e5e7eb;
+      color: #111827;
+      padding: 9px 12px;
+      border-radius: 999px;
+    }
+
+    .tab.active { background: #111827; color: #fff; }
+
+    .notice {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    
+    /* 사이드바 오버레이 */
+    .sidebar-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(17, 24, 39, 0.4);
+      z-index: 999;
+      display: none;
+      opacity: 0;
+      backdrop-filter: blur(2px);
+      transition: opacity 0.3s ease;
+    }
+
+    .sidebar-overlay.show {
+      display: block;
+      opacity: 1;
+    }
+    
+    /* 사이드바 본체 */
+    .sidebar {
+      position: fixed;
+      top: 0; right: -320px;
+      width: 320px; 
+      height: 100%;
+      background: var(--card);
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+      z-index: 1000;
+      transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar.show {
+      right: 0;
+    }
+    
+    /* 사이드바 내부 요소 */
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--line);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .sidebar-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+
+    .close-btn { 
+      background: none; border: none; font-size: 28px; 
+      color: var(--muted); padding: 0; width: auto; line-height: 1;
+    }
+
+    .close-btn:hover { color: var(--danger); }
+    
+    .sidebar-content { padding: 20px; overflow-y: auto; flex: 1; }
+
+    .category-group { margin-bottom: 24px; }
+
+    .category-group h3 { margin: 0 0 12px; font-size: 15px; color: var(--primary); color: rgb(0, 138, 62); }
+
+    /* 변경 후 코드: 링크를 카드 형태로 깔끔하게 분리 */
+    .category-list { list-style: none; padding: 0; margin: 0; }
+    .category-list li { margin-bottom: 8px; } /* 항목 간 간격 */
+
+    .category-list a { 
+      color: var(--text); 
+      text-decoration: none; 
+      font-size: 13.5px; 
+      display: block; 
+      line-height: 1.5; 
+      word-break: keep-all;
+      
+      /* 박스 디자인 추가 */
+      padding: 10px 14px;
+      background-color: var(--bg); /* 연한 배경색 */
+      border: 1px solid var(--line); /* 얇은 테두리 */
+      border-radius: 10px; /* 둥근 모서리 */
+      transition: all 0.2s ease; /* 부드러운 애니메이션 효과 */
+    }
+
+    /* 마우스 올렸을 때(호버) 효과 */
+    .category-list a:hover { 
+      color: var(--primary); 
+      background-color: #ffffff; 
+      border-color: var(--primary); 
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1); /* 은은한 파란 그림자 */
+      transform: translateY(-2px); /* 살짝 위로 떠오르는 효과 */
+    }
+
+    /* --- 현재 선택된 링크(활성화 상태) 스타일 --- */
+    .category-list a.active-link {
+      color: var(--primary); /* 테마 포인트 색상 (파란색 등) */
+      background-color: #ffffff; /* 배경을 밝게 */
+      font-weight: bold; /* 글씨를 굵게 */
+      border: 1px solid var(--primary); /* 테두리에 포인트 색상 */
+      border-left: 5px solid var(--primary); /* 왼쪽에 굵은 띠를 주면 확 눈에 띕니다 */
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* 은은한 그림자 */
+      transform: translateY(-2px); /* 살짝 띄워주는 효과 */
+    }
+
+    @media (max-width: 640px) {
+      .row { flex-direction: column; }
+      button { width: 100%; }
+      .wrap { width: min(100% - 20px, 980px); margin: 18px auto; }
+      .card { padding: 16px; border-radius: 14px; }
+    }
+
+    /* --- 아코디언 토글 스타일 --- */
+    .category-group h3, .sub-category h4 {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      user-select: none; /* 더블클릭 시 텍스트 블록 지정 방지 */
+    }
+    
+    /* 제목 오른쪽에 자동으로 회전하는 화살표 추가 */
+    .category-group h3::after, .sub-category h4::after {
+      content: '▼';
+      font-size: 9px;
+      margin-left: 6px;
+      color: var(--muted);
+      transition: transform 0.2s ease;
+    }
+    
+    /* collapsed(접힘) 클래스가 붙으면 화살표를 오른쪽(▶)으로 회전 */
+    .category-group.collapsed h3::after, .sub-category.collapsed h4::after {
+      transform: rotate(-90deg);
+    }
+    
+    /* 연도가 접히면 하위 분기들을 숨김 */
+    .category-group.collapsed .sub-category {
+      display: none;
+    }
+    
+    /* 분기가 접히면 하위 글 목록(ul)을 숨김 */
+    .category-group.collapsed .sub-category .category-list,
+    .sub-category.collapsed .category-list {
+      display: none;
+    }
+
+    /* ===== 바깥 전체(HTML) 스크롤 방지 & 본문 영역 내부 스크롤 최적화 ===== */
+    html, body {
+      height: 100vh;
+      height: 100dvh; /* 모바일 하단바까지 완벽히 고려한 최신 높이값 */
+      overflow: hidden !important; /* 바깥쪽 메인 스크롤바 완전 숨김 */
+    }
+
+    .wrap {
+      /* 내용이 적을 땐 작게, 꽉 차면 화면 끝까지만 커지도록 제한 */
+      max-height: calc(100vh - 64px); 
+      max-height: calc(100dvh - 64px); 
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    .card {
+      display: flex !important;
+      flex-direction: column !important;
+      max-height: 100% !important; 
+      min-height: 0 !important; /* 카드를 뚫고 나가는 것 방지 (스크롤 트리거) */
+    }
+
+    /* 자바스크립트로 결과창이 열렸을 때 레이아웃이 깨지지 않게 flex 구조로 덮어쓰기 */
+    .result[style*="block"] {
+      display: flex !important;
+      flex-direction: column !important;
+      min-height: 0 !important;
+      flex: 1 !important;
+    }
+
+    /* 본문, HTML, 텍스트가 표시되는 실제 내용 영역 */
+    .preview, textarea {
+      flex: 1 !important; /* 탭 버튼과 상단 영역을 뺀 남은 공간을 모두 차지 */
+      min-height: 0 !important;
+      max-height: none !important; /* 기존에 걸려있던 애매한 최대 높이 제한 해제 */
+      overflow-y: auto !important; /* ⭐ 여기서만 스크롤이 생기도록 설정! */
+    }
+
+    textarea {
+      resize: none !important; /* 화면에 꽉 차게 스크롤되므로 수동 조절 차단 */
+    }
+
+    /* 명작선 보기 버튼과 본문 가져오기 버튼의 가로 길이를 똑같이 맞춤 */
+    #openSidebarBtn, .row button {
+      width: 120px !important; /* 원하시는 길이에 따라 140px ~ 160px 등으로 조절해 보세요 */
+      flex-shrink: 0;
+      text-align: center;
+    }
+
+    /* ===== 1. 불필요한 탭 완벽 숨김 ===== */
+    .tabs {
+      display: none !important;
+    }
+
+    /* ===== 2. 본문(미리보기) 영역 글자 및 여백 확대 ===== */
+    .preview {
+      font-size: 17px !important; /* 기존(16px)보다 글자를 더 크게 */
+      line-height: 1.8 !important; /* 글씨가 커진 만큼 줄간격도 시원하게 */
+      padding: 24px !important; /* 안쪽 여백을 넓혀서 답답함 해소 */
+    }
+
+    /* ===== 3. 프로그램 전체 가로 폭 확장 (선택 사항) ===== */
+    .wrap {
+      /* 기존 980px 였던 가로 폭을 1200px로 확 늘려서 모니터를 넓게 씁니다 */
+      width: min(1200px, calc(100% - 32px)) !important; 
+    }
+
+    /* ===== 💡 툴바 접기/펴기 디자인 ===== */
+    .toolbar {
+      display: flex; 
+      flex-wrap: wrap; /* 화면이 좁을 때 버튼이 자연스럽게 아랫줄로 내려가도록 추가 */
+      align-items: center;
+      gap: 8px; 
+      margin-bottom: 16px;
+      transition: all 0.3s ease-in-out; /* 부드러운 애니메이션 */
+      max-height: 200px; /* 여러 줄로 내려가도 넉넉하게 다 보이도록 200px로 확장 */
+      opacity: 1; 
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .toolbar.collapsed {
+      max-height: 0; 
+      opacity: 0; 
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="wrap">
+    <section class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h1 style="margin: 0;">본문 추출기</h1>
+        <button id="openSidebarBtn" class="secondary">명작선 보기 📚</button>
+      </div>
+      <div class="row">
+        <input id="urlInput" placeholder="주소 입력" autocomplete="off" />
+        <button id="extractBtn">본문 가져오기</button>
+      </div>
+      <div id="status" class="status"></div>
+
+      <section id="result" class="result">
+        <div id="title" class="title"></div>
+        <div id="meta" class="meta"></div>
+        <div style="text-align: right; margin-bottom: 8px;">
+          <button id="toggleToolbarBtn" class="secondary" style="padding: 6px 10px; font-size: 12px; width: auto;">기능 펼치기 ⚙️</button>
+        </div>
+
+        <div id="toolbarContainer" class="toolbar collapsed">
+          <button id="copyRichBtn">스타일 포함 복사</button>
+          <button id="copyTextBtn" class="secondary">텍스트만 복사</button>
+          <button id="imageToggleBtn" type="button">사진 ON</button>
+        </div>
+        
+        <div class="tabs">
+          <button id="previewTab" type="button"></button>
+          <button id="htmlTab" type="button"></button>
+          <button id="textTab" type="button"></button>
+        </div>
+        <div id="preview" class="preview"></div>
+        <textarea id="htmlBox" readonly></textarea>
+        <textarea id="textBox" readonly></textarea>
+      </section>
+    </section>
+  </main>
+
+  <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <h2>나폴리탄 명작선</h2>
+      <button id="closeSidebarBtn" class="close-btn">&times;</button>
+    </div>
+    <div class="sidebar-content">
+      
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 2023년 명작 단편선</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px; margin-bottom: 16px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🌱☀️ 2023년 이전 + 2023년 1분기 + 2023년 2분기</h4>
+          <ul class="category-list">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=201" target="_blank">📖 ㅡ경고ㅡ 소망대교는 폐쇄되었습니다. 다른 길로 가십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=264" target="_blank">📖 최후의 정원에서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1871" target="_blank">📖 제발 상식적으로 생각해</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1197" target="_blank">📖 파란색 문이 있기는 했는데</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2401" target="_blank">📖 페이스바디 면도기 고객지원 상담내역</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=174" target="_blank">📖 ㅡㅡ필독ㅡㅡ 해동아파트 107동 입주민 특별 안전 수칙</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1716" target="_blank">📖 살인</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=357" target="_blank">📖 [접근금지] 제 9차 소망대교 탐사 기록</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1066" target="_blank">📖 지금 당장 그 건물에서 나오시길 바랍니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2245" target="_blank">📖 "생존자 편향이라는 거 알아?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=464" target="_blank">📖 국가 "■■■■"을 여행하는 여행객들을 위한 주의사항</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=388" target="_blank">📖 서성고등학교 신입 교직원 매뉴얼</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=56" target="_blank">📖 (난이도: 매운맛) 대구 사결고등학교 정보 교사 행동 강령</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=536" target="_blank">📖 산무 농장 제 3구역 인수인계</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1565" target="_blank">📖 이거 내가 프랑스 학생들한테 이야기해준건데 안믿더라</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2250" target="_blank">📖 어느 비 내리는 밤, 골목을 지나가는 방법</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=433" target="_blank">📖 20XX년 그림자 괴물체에 의한 대량 학살 사건 / 타임라인</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1649" target="_blank">📖 이상한 세계에 떨어졌다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2002" target="_blank">📖 이전으로는 돌아갈 수 없습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=674" target="_blank">📖 급구) 명인역 구 지하상가 단기관리직 채용 공고</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1478" target="_blank">📖 구인류 특별 전시회</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2134" target="_blank">📖 어 신입왔냐? ㅋㅋ 읽어보셈. <1></a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2064" target="_blank">📖 아파트 뒤쪽 나무 관찰자</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1234" target="_blank">📖 해남터널 폐건물 수칙서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1818" target="_blank">📖 절대 문을 열지 마시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=257" target="_blank">📖 신루 박물관에 어서오십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1784" target="_blank">📖 UN 안보리, 전염지역 핵 공격 승인 [뉴스 캡쳐]</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1067" target="_blank">📖 그래서 씨발 하늘색은 파란색이야?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=653" target="_blank">📖 뉴비 괴담 한 번 써볼라는데 팁 좀 주세요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2193" target="_blank">📖 산무가 뭐하는 회사인지 궁금하다고?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=862" target="_blank">📖 당신은 전라남도 무진시를 지나고 있습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=891" target="_blank">📖 65X 버스 이용 안내문</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=711" target="_blank">📖 XX 아파트 101동 경비원 근무 지침서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1205" target="_blank">📖 경고: 명월산 숲길은 2008년 폐쇄되었습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=163" target="_blank">📖 [괴담] 외딴 학교의 규율</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=818" target="_blank">📖 (공포주의)제목 : 여기 게시판 아직 살아있어?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=326" target="_blank">📖 소망대교에 직접 방문해보았다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=366" target="_blank">📖 해남산 약도 및 통행 수칙</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2518" target="_blank">📖 2022년 6월, 유가족의 기사 스크랩</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2309" target="_blank">📖 세종특별자치시 119신고 통화 내역</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1955" target="_blank">📖 ETENG 무료 성격유형검사</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1845" target="_blank">📖 아니 씹 일어났는데 손가락 사라짐</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2174" target="_blank">📖 이걸 보고도 계속 하겠다고? 대단하네 진짜 ㅋㅋ <2></a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1711" target="_blank">📖 폐사하는 뉴비들 너무 많아서 공략 좀 쓴다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1428" target="_blank">📖 관측 결과</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=442" target="_blank">📖 이름없는 야산 생존수칙</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=948" target="_blank">📖 다음 역은 영-올디내리 역 입니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1592" target="_blank">📖 이정표</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1486" target="_blank">📖 42.195</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1950" target="_blank">📖 주인공은 절대 죽지 않아</a></li>
+        </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px; margin-bottom: 16px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🍂 3분기 (Q3)</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6322" target="_blank">📖 제발 읽지마. 그만하고 싶어</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5914" target="_blank">📖 Click Here</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7867" target="_blank">📖 멸망을 피할 방법</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7916" target="_blank">📖 지금 당장 옷을 벗어</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7308" target="_blank">📖 [괴담대회] 그는 날 사랑한 적이 없었다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7038" target="_blank">📖 [괴담대회] 도쿄의 한 호텔 새벽 두 시 객실 전체 TV에 방영된 방송.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7190" target="_blank">📖 [괴담대회] 너무 평화롭다 싶었습니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=4018" target="_blank">📖 어느 교양수업</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2756" target="_blank">📖 당신은 '스카이 빌리지 워터파크'에 위치해 있습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6948" target="_blank">📖 [괴담대회] 인산2동성당은 폐쇄되었습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6039" target="_blank">📖 그곳은 태락 놀이터입니다. 귀하의 잘못이 아닙니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5790" target="_blank">📖 "한국은 정말 멋진 나라입니다."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8405" target="_blank">📖 [긴급] 원내에 이런 동화책 발견 시 즉각 회수 바랍니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5070" target="_blank">📖 한밤 중 목이 말라 부엌에 간 당신은.......</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6803" target="_blank">📖 감금된 나와 거짓말 탐지기</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=3791" target="_blank">📖 지침서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7956" target="_blank">📖 창꼬 칸리를 부탁하마.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=4758" target="_blank">📖 잊혀지는 방법</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8088" target="_blank">📖 9월 10일 모 아파트 엘리베이터 안내방송 녹취록</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=4255" target="_blank">📖 그러게 정신 똑바로 차리고 다니라니까</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=3775" target="_blank">📖 누가 거기 가라고 협박함?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7589" target="_blank">📖 [괴담대회] 상현아, 애비다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5632" target="_blank">📖 괴담 현실화 사건에 대한 생존 지침서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8575" target="_blank">📖 전파 테러 대처 수칙서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=3383" target="_blank">📖 열심히. 살아. 아직은. 일러.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=3848" target="_blank">📖 오늘 밤, 제 아이를 맡아 주셔서 정말 고마워요. 팀!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8581" target="_blank">📖 ❗경고❗이 문서를 열람하지 마십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6150" target="_blank">📖 그..당신은 저희와 함께하게 되었습니다만...</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8691" target="_blank">📖 수칙은 피로 쓰여지는가? 악의로 쓰여지는가?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7045" target="_blank">📖 [괴담 대회] 심야 버스 6442번</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6846" target="_blank">📖 말 편하게 해도 되지? 김현식이라고 한다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=3029" target="_blank">📖 나는 스카이 빌리지 워터파크의 사장이다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8548" target="_blank">📖 코믹월드 생환 수칙서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7720" target="_blank">📖 제발 좀 나가주시길 바랍니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8315" target="_blank">📖 홀로 살아있는 당신에게.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7245" target="_blank">📖 수면 코칭 어플리케이션</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6955" target="_blank">📖 [괴담대회] 담배를 피우는 게 좋아요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7454" target="_blank">📖 XX워터파크의 분실물, 미아 센터 관리 목록.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5432" target="_blank">📖 당신이 이용 중인 택시는 가짜입니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=3419" target="_blank">📖 경청하고 문을 여세요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6959" target="_blank">📖 1066번 채널을 시청하세요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=4674" target="_blank">📖 정리해 보며 참 즐거웠습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6283" target="_blank">📖 대단히 유감입니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8466" target="_blank">📖 솔직히 팔 하나 주고 몇백 억 받으면 개이득 아니냐?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8676" target="_blank">📖 밤의 바다를 보신 적 있습니까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7311" target="_blank">📖 [괴담대회]자동통화녹음_20360404_11.amr</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2653" target="_blank">📖 로그</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2703" target="_blank">📖 [ 강원남부제3교도소 7하5방 신입 수용자 녹취록 ]</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8687" target="_blank">📖 전우의 피로 쓰여진 수첩</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7075" target="_blank">📖 [괴담대회] 노랑 개구리를 조심하세요.</a></li>
+        </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">❄️ 4분기 (Q4)</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10059" target="_blank">📖 너는 운이 좋아, 선택 할 수 있어</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10814" target="_blank">📖 종현아, 이 녹음을 꼭 듣기를 바란다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11076" target="_blank">📖 돌을 삶는 노인</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8946" target="_blank">📖 제발 읽어주세요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10896" target="_blank">📖 지금 당신의 발 밑을 지나간 것들.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11059" target="_blank">📖 바다거북 수프 게임</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9438" target="_blank">📖 엄마의 유언장</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8959" target="_blank">📖 옛 심야방송 "일출을 기다리며" 녹화본</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11106" target="_blank">📖 세계유일 호러 RPG 블랙플레임 온라인 입니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10292" target="_blank">📖 추천 누르지 말고 댓글을 달아줘</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11361" target="_blank">📖 마녀의 집</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10655" target="_blank">📖 즉시 주변 사람들과 떨어지십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10877" target="_blank">📖 AI</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9268" target="_blank">📖 한 명의 여자로서 한 명의 남자를 위해.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9730" target="_blank">📖 요즘 규칙 괴담에 나오면 별로인 거</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9560" target="_blank">📖 인간 도축장에 납치된 경우</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10413" target="_blank">📖 우리는 마침내 들었다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8855" target="_blank">📖 202x년, 온라인 뉴스</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10505" target="_blank">📖 진심 갤 개쳐망한게 느껴진다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11269" target="_blank">📖 당장 이 글을 읽으십시오. 뒈지기 싫으면.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8795" target="_blank">📖 &lt;단편&gt; Mr. 마리아나의 이야기</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8938" target="_blank">📖 김 대리, 내가 감히 조언하고 싶은 게 있습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10535" target="_blank">📖 그래도 나폴리탄 갤러리는 꼭 필요하긴 함.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10152" target="_blank">📖 벽 속의 조선족들</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10353" target="_blank">📖 탈출하기 위해선 사람들 스스로 규칙을 정해야만 한다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10340" target="_blank">📖 ¥€**£$&amp;@¥£#%</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11328" target="_blank">📖 '즉시 지급된 알약을 복용하십시오.'</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9514" target="_blank">📖 아폴로 프로젝트는 거짓인가요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10233" target="_blank">📖 나는 8살 때 이상한 마을에 버려젔어</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10083" target="_blank">📖 육성 종합병원 탈출 수칙서와 권총</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8925" target="_blank">📖 어느 날부터 누나가 이상한 행동을 하기 시작했다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8909" target="_blank">📖 30평 짜리 집 공짜로 얻었다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10852" target="_blank">📖 문학적이지 않은 누군가의 죽음</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9228" target="_blank">📖 우리 보육원에서 친구들이 지켜야 할 수칙들</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10642" target="_blank">📖 모두가 다른것을 바라보는 세상</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10835" target="_blank">📖 절대로 멈추지 마라. 계속 걸어가.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9409" target="_blank">📖 지금부터 아무것도 생각하시면 안 됩니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10143" target="_blank">📖 길 한복판에서 여자친구를 찔러 죽인 놈이라고?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10314" target="_blank">📖 이곳에서 탈출하는 방법</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9505" target="_blank">📖 0. 가장 중요한 것은, 절대 이 노트를 들키지 말 것.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10614" target="_blank">📖 꿈 속에서 본 빨간집</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11051" target="_blank">📖 이 글을 읽지 마시오) 규칙서는 왜 존재하는가?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9613" target="_blank">📖 네가 여기에 왔다는건</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9244" target="_blank">📖 일반적인 화장실</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9172" target="_blank">📖 ★필독★ 이상기획 철야근무자 행동요령</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10556" target="_blank">📖 지금 완장들 싹 다 짤라야 한다고 생각함.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9118" target="_blank">📖 더 이상 사형은 법정 최고형이 아니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8896" target="_blank">📖 &lt;단편&gt; 할아버지의 가면</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10746" target="_blank">📖 이곳은 공포 백화점</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8935" target="_blank">📖 &lt;단편&gt; '거미 동굴' 신작 발표회</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 2024년 상반기 명작 단편선</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🌱 1분기 (Q1)</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13129" target="_blank">📖 꿈의 수호자</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11582" target="_blank">📖 식당 안내문</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12481" target="_blank">📖 스무 고개를 좋아하십니까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12970" target="_blank">📖 사람은 아무도 섬이 아니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=14782" target="_blank">📖 생환자 ■■■님께</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=14535" target="_blank">📖 나의 제페토</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12672" target="_blank">📖 절대 자살하지마</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13793" target="_blank">📖 네가 찾는 건 여기 있어.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=14267" target="_blank">📖 누가 가장 운이 좋은 사람일까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12806" target="_blank">📖 인외 분쟁조정위원회</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13471" target="_blank">📖 호텔 안내문</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13103" target="_blank">📖 현재로서는 탈출할 수 있는 방법이 전무하다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13013" target="_blank">📖 &lt;302동 주민들께 드리는 말씀: 이른바 "쓰레기 조 씨"에 대해서&gt;</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13979" target="_blank">📖 짬찌 새끼야 이거부터 읽어라</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13239" target="_blank">📖 절대 꿈 팔지마라</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11939" target="_blank">📖 낲갤도 이제 개나락갔네ㅋㅋ</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13718" target="_blank">📖 수명 매입소 안내문</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11670" target="_blank">📖 김근석 변호사 사무실 신규 실장님을 위한 지침</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=14043" target="_blank">📖 [괴담] 나를 흉내내는 것</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12646" target="_blank">📖 현재 귀하가 관람하고 있는 민속극은 연출이 아닙니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11498" target="_blank">📖 TV</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13530" target="_blank">📖 오후 5시 7분 SOS 뉴스 정규 날씨 방송입니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=14210" target="_blank">📖 [괴담] 그것은 삼행시를 모른다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=14012" target="_blank">📖 이갈이는 보통 어떤 소리가 나죠?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12472" target="_blank">📖 실종된 정기수 씨의 유튜브 재생목록.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11574" target="_blank">📖 계속 살아가십시오</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12571" target="_blank">📖 문만 열지 않는다면 안전할 것이다. 아마도.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12172" target="_blank">📖 혼자만의 반려(伴侶)</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11757" target="_blank">📖 부모님이 사원의 주인에게 죽임을 당했습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13847" target="_blank">📖 최고의 1년을 보내셨습니까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12246" target="_blank">📖 붉은 세면대</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11436" target="_blank">📖 소신발언하자면 완장질 좀 소름끼치긴 함</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11382" target="_blank">📖 3차원</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11507" target="_blank">📖 [잠 못 이루는 밤, 깊은 잠을 부르는 뇌파 동조화 수면 사운드]</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11434" target="_blank">📖 나는 벌을 받고 있는가?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12170" target="_blank">📖 이 메시지는 모든 괴이대책본부에 발송됩니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13331" target="_blank">📖 "하루가 반복 된다면"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13094" target="_blank">📖 귀정 초등학교의 전설</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11938" target="_blank">📖 괴담은 어떻게 형성되는가?-괴기 체험자들의 인터뷰, 그리고 기억의 변형</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12307" target="_blank">📖 '어둠의 숲 가설'에 대해 아시나요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12017" target="_blank">📖 웃는 귀신, 춤추는 귀신</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11609" target="_blank">📖 카스테라</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11548" target="_blank">📖 진남상가 야간 경비실 수첩</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13287" target="_blank">📖 경계경보</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11460" target="_blank">📖 "자네 요새 얼굴이 좋아보이는군."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11794" target="_blank">📖 숙취</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12298" target="_blank">📖 창 너머의 엄마</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12054" target="_blank">📖 테라바이트 PC방 이용 수칙</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12165" target="_blank">📖 사촉 아파트 103동 게시판에 붙은 안내문</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11856" target="_blank">📖 티케의 이삭 호에 승선한 것을 환영한다네.</a></li>
+          </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">☀️ 2분기 (Q2)</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15886" target="_blank">📖 Acta est fabula, plaudite!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18157" target="_blank">📖 이른 과거의 누군가에게 닿기를</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18941" target="_blank">📖 추억의 영화 찾아드립니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17645" target="_blank">📖 억겁의 세월에 걸친 형벌</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=16484" target="_blank">📖 모성애</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15926" target="_blank">📖 [단편] 제습</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18664" target="_blank">📖 여태꺼정 연락두 없구 서운혔다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15834" target="_blank">📖 [단편] 다가오는 여자</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15661" target="_blank">📖 그니까 5억년 동안 시간이 멈췄다니까요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18442" target="_blank">📖 "당신은 마지막 쉘터에서 깨어났습니다."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17786" target="_blank">📖 만약 당신이 백수라면 필독하십시오</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18066" target="_blank">📖 김근석 정신건강의학과 진찰일지</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15071" target="_blank">📖 하루가 48시간인 남자</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=16934" target="_blank">📖 세계의 비밀</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15842" target="_blank">📖 규칙만 잘 지키면 의외로 좋은 아파트다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18247" target="_blank">📖 [필][독] 평안 절도사가 알린다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17092" target="_blank">📖 새로운 운영자님께</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17052" target="_blank">📖 괴이 인강을 이용해주셔서 감사합니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17647" target="_blank">📖 공부 못하는새끼들은 시발 그냥 죽으라는거냐고</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18828" target="_blank">📖 "나와 함께 살인을 하지 않겠나?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15443" target="_blank">📖 저한텐 저한테 말을 거는 머릿속 캐릭터가 있었어요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17887" target="_blank">📖 여관에 들여보내면 안되는 것들</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18231" target="_blank">📖 (공포주의) 잠 안와서 푸는 썰</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=16829" target="_blank">📖 순환선</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18366" target="_blank">📖 달을 바라보라고?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18860" target="_blank">📖 그지같은 마녀의 숲에 온 걸 환영한다.txt</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15161" target="_blank">📖 상대가 탈출하면, 귀하께서도 탈출하시는 것이 가능합니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17060" target="_blank">📖 단죄의 심판대</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15922" target="_blank">📖 터널</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=14974" target="_blank">📖 [단편] 정신오염</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15261" target="_blank">📖 전환 고등학교 민원 게시판</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17146" target="_blank">📖 독서실 305번 자리를 쓰던 사람이 남긴 글</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17735" target="_blank">📖 도서관</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17691" target="_blank">📖 식물</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17296" target="_blank">📖 괴담 하나 찾아주실 분?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=16169" target="_blank">📖 천예 저수지 어린이 집단 실종사건</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18043" target="_blank">📖 점장님 이제 퇴근하십니까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17091" target="_blank">📖 세상이 망해도 공부는 하는 법이니까</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15589" target="_blank">📖 거성빌라 수도관 누출 사고에 관한 기록.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=16925" target="_blank">📖 당신이 고1이라면 이 글을 읽는 것을 강력히 추천합니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17752" target="_blank">📖 왜 괴이는 인간을 먹을까요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17843" target="_blank">📖 영화를 찾습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18724" target="_blank">📖 불 난 거 아니니까 쫄지 마라</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18262" target="_blank">📖 분대장을 단 너를 위한 당직근무 야간 인수인계.txt</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17209" target="_blank">📖 야 사람 한 명 죽이면 1억 준다는데 하냐?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=16423" target="_blank">📖 걱정으로 가득 차 있을 H 씨에게.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17816" target="_blank">📖 불청객</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17142" target="_blank">📖 영진법당에서의 생존법</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15228" target="_blank">📖 귀신이 가장 잘 흉내내는 소리</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17284" target="_blank">📖 스쿠버 다이빙시 유의점</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 2024년 하반기 명작 단편선</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🍂 3분기 (Q3)</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20577" target="_blank">📖 야, 이곳은 죽은 곳이야</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21355" target="_blank">📖 할미가 미안타 도저히 고아원에 보낼수는 없었다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22152" target="_blank">📖 앞은 뒤를 위해, 뒤는 앞선 이들을 짊어지고서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19290" target="_blank">📖 죄송하지만 전 당신의 질문에 거짓으로 대답할 수밖에 없습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19785" target="_blank">📖 괴이는 인간이 될 수 있는가?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20237" target="_blank">📖 상식 개변</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22538" target="_blank">📖 욕조의 밑바닥에는 괴물이 살아</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19615" target="_blank">📖 고신 사찰</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21095" target="_blank">📖 부산광역시 안전안내문자</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19513" target="_blank">📖 시발 도플갱어 만났는데</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21212" target="_blank">📖 고해성사</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22198" target="_blank">📖 3.14층</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21807" target="_blank">📖 거짓말 하지 마.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19613" target="_blank">📖 전지전능한 주사위</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20319" target="_blank">📖 "어어, 아가씨 소리지르지 마"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20401" target="_blank">📖 불러오기</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19412" target="_blank">📖 낮은 확률로 문이 열려있습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22435" target="_blank">📖 "괴이는 어떻게 탄생하는가."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20761" target="_blank">📖 "요즘 들어 남편이 이상하다."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21555" target="_blank">📖 "당신의 사인(死因)을 알고 싶지 않으신가요?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21820" target="_blank">📖 "전쟁에서 살아남아야 하는 나를 위한 수칙서"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22005" target="_blank">📖 친애하는 인간에게</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19284" target="_blank">📖 네이버 지식인 하며 가장 기억에 남았던 이야기</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19773" target="_blank">📖 예/아니오로만 대답할 수 있습니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21629" target="_blank">📖 죄송하지 않습니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22027" target="_blank">📖 문이 있는 작은 방.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20468" target="_blank">📖 그 한 번은 그녀 인생 최악의 내기가 될 터였다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19889" target="_blank">📖 괴이들 말이에요, 왠지 모르게 필사적이지 않나요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22234" target="_blank">📖 이상 현상 경보 등급에 대해 안내드립니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20827" target="_blank">📖 11번 수칙을 까먹었다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20314" target="_blank">📖 최대한 큰 소리를 내주세요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20856" target="_blank">📖 "엄마. 침대 밑에 메뉴얼이 있어요."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20838" target="_blank">📖 내리실 문은 1호차에 있습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21144" target="_blank">📖 화전(火田)</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19668" target="_blank">📖 두 번째 달 착륙</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21738" target="_blank">📖 아차. 보리랑 땡칠이 밥 주는 거 잊지 마라, 성훈아.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20218" target="_blank">📖 승민이</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22015" target="_blank">📖 여기에 예지몽 관련된 썰 풀어도 괜찮을까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20736" target="_blank">📖 시간의 힘은 강력합니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21529" target="_blank">📖 딩동. 적응형 가이드 단말기가 지금부터 귀하의 탈출을 보조합니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20585" target="_blank">📖 [속보] 서울에서 진도 10.5지진 발생.. 사상자 추산 힘들어...</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19626" target="_blank">📖 출입금지</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21057" target="_blank">📖 야생고깃집 산촌댁에 대한 기억</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19588" target="_blank">📖 "어떻게 지평좌표계로 고정을 하셨죠?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21692" target="_blank">📖 "근데 '죄송합니다' 라는 표현은 왜 쓰는 겁니까?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20462" target="_blank">📖 폐급 下</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20477" target="_blank">📖 혹시 칼 맞아 죽는 서커스 영상 찾을 수 있을까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19571" target="_blank">📖 (장문)조류공포증 치료 후기 적어봅니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19496" target="_blank">📖 나는 평범한건가?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21050" target="_blank">📖 여자 후배와 지방 출장 갔다가 모텔에서 잔 썰</a></li>
+          </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">❄️ 4분기 (Q4)</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26327" target="_blank">📖 리셋: 지구를 구해야 한다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25780" target="_blank">📖 이전 사람들과 다른 방법으로 탈출하세요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24877" target="_blank">📖 이 게시글의 추천 수는 4, 44, 444 일 수 없습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25325" target="_blank">📖 미로</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26104" target="_blank">📖 동남대학교 대연캠퍼스 장터게시판</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23864" target="_blank">📖 명령어를 입력하세요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23461" target="_blank">📖 돌이킬 수 없는</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24133" target="_blank">📖 축하합니다! [ 주피터 호텔 무료 체험권 ] 에 당첨되셨습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27056" target="_blank">📖 당신의 하루를 더 값지게 만들어 드립니다!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24956" target="_blank">📖 승전병의 매뉴얼</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23573" target="_blank">📖 플레이차일드 키즈카페에 오신 것을 환영합니다! : )</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23846" target="_blank">📖 네 개의 대답 중 하나는 거짓이다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24453" target="_blank">📖 넌 그냥 운이 조지게 없었을 뿐이야</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24079" target="_blank">📖 싫은 손님</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25509" target="_blank">📖 ‘네 개의 방’에 들어오신 당신에게</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24608" target="_blank">📖 무한 검색 엔진 탐사</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24358" target="_blank">📖 [잡담] 요즘 할만한 인디겜 없냐?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22929" target="_blank">📖 친절한 악마씨</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25729" target="_blank">📖 공중화장실에서 기계 씻는 남자</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26455" target="_blank">📖 꿈과 현실을 혼동하지 않기 위해.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26846" target="_blank">📖 "옛날엔 별이란 게 있었대."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24039" target="_blank">📖 장산 판타지랜드 이용가이드</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25264" target="_blank">📖 책 먹는 여우</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26030" target="_blank">📖 끝말잇기를 성공해야 나갈 수 있습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25004" target="_blank">📖 위층 엄마, 아래층 엄마</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23664" target="_blank">📖 #A101, '모든걸 아는' 마트 직원에 대한 매니저 안내문</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23751" target="_blank">📖 해당 수칙서는 한 글자씩 늘어납니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24062" target="_blank">📖 시간을 건너뛰는 능력</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25924" target="_blank">📖 100/100 - 앱테크 필수 어플, 돈버는 앱, 주식, 부업, 미션</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24373" target="_blank">📖 띵~동~ 배달의 민족 주문↗영수증 내역서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24244" target="_blank">📖 XX하면 죽는 병</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22841" target="_blank">📖 오직 당신을 위한 수칙서.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24387" target="_blank">📖 가는 데로 몬 배, 손을 쭉 추켜 튼 평화</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25827" target="_blank">📖 수칙서를 버렸다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23632" target="_blank">📖 통 조 림</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26753" target="_blank">📖 긴급 속보. [소문이 돌고 있습니다.]</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23109" target="_blank">📖 집행열차 탑승자 수칙서.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26598" target="_blank">📖 냉동 인간은 꿈을 꾸는가?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23097" target="_blank">📖 각오하십시오. 당신은 지금 중성자별에 있습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23821" target="_blank">📖 재미없는 이야기를 팔던 곳.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26808" target="_blank">📖 나는 그때 눈을 감고 자는 척을 했다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24910" target="_blank">📖 웃는 아저씨</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23196" target="_blank">📖 Q. 이 귀신이 뭔지 알 수 있을까요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25768" target="_blank">📖 사람을 처리해드립니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24408" target="_blank">📖 우리는 제법 머리가 좋다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23192" target="_blank">📖 사형수의 마지막 식사</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25521" target="_blank">📖 왜 여기 불이 꺼져있지?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24929" target="_blank">📖 상대의 속마음을 알려드립니다!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23412" target="_blank">📖 사각형의내부의사각형의내부의사각형의내부의사각형의내부의사각형내부의사각형</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23900" target="_blank">📖 頭</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 2025년 상반기 명작 단편선</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🌱 1분기 (Q1)</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31283" target="_blank">📖 "뒤돌아보지 마"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28015" target="_blank">📖 [단편]산타의 집 선물 교환 사례집</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30937" target="_blank">📖 지금 원자로 내벽 안에 갇혔습니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27838" target="_blank">📖 선은 100년이 지나도 선이다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30843" target="_blank">📖 형, 나 재호. 지금부터 내가 하는 말이 비현실적일 수도 있지만 들어줘.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30285" target="_blank">📖 절대시계</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31229" target="_blank">📖 영원이 평생에게.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31530" target="_blank">📖 물의를 일으켜 죄송합니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30786" target="_blank">📖 비상식!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30431" target="_blank">📖 그 노이즈가 대체 뭐길래 그래?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=29443" target="_blank">📖 차라리 모르고 사는 게 나았을지도 몰라</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30857" target="_blank">📖 불길한 것.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30787" target="_blank">📖 (혐) 미니 카타콤™</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30397" target="_blank">📖 카르마 앱</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31254" target="_blank">📖 "금일 기숙사 금지 사항을 안내해 드립니다."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=29109" target="_blank">📖 [단편] □는 아직 갇혀있다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27196" target="_blank">📖 “네 나오셔도 돼요.”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27524" target="_blank">📖 역할에 맞게 행동하여 가정집에서 생존하십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31185" target="_blank">📖 회성 영화관 무사 복귀를 위한 안내문</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31796" target="_blank">📖 필수 픽토그램들을 알아보자!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30121" target="_blank">📖 “아들아, 꼭 살아남아야 한다.”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28651" target="_blank">📖 “당신에게 주어진 선택지는 두 개입니다.”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28103" target="_blank">📖 이 할미 말 단디 들어라.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28972" target="_blank">📖 [굶주린 요리사 키우기!]</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28189" target="_blank">📖 거리에서 인간 목소리가 들리는 순간 우린 끝이야.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28287" target="_blank">📖 침착함을 유지하며, 평소 하던 대로 행동하십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27798" target="_blank">📖 여기 고등학교 절대 오지 마라</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31897" target="_blank">📖 (혐/스압) 맞불</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28440" target="_blank">📖 안녕! 여기는 궁정 {광}대* 의 궁)전, 나`는 광ㄷㅐ!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31510" target="_blank">📖 바리사이 프로젝트</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28546" target="_blank">📖 손나무라고 알아?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31388" target="_blank">📖 난 고양이 안좋아해</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28186" target="_blank">📖 “아 좀 아쉬운데?”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27402" target="_blank">📖 인간쓰레기는 어디에다 버리나요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27770" target="_blank">📖 Undefined 666.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30912" target="_blank">📖 그 땐 내가 돈이 없었고, 몸이라도 팔아야 했어.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31293" target="_blank">📖 “당신은 U.S.S. 알키오네의 마지막 생존자입니다.”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27892" target="_blank">📖 미안합니다, 이제는 당신을 도울 길이 없습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31423" target="_blank">📖 지금부터 알려주는 거 전부, 귀 기울여 들어.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27326" target="_blank">📖 길을 걷고 있는 중년 남성</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30091" target="_blank">📖 대가 없이 원하는 소원을 이루어드립니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30335" target="_blank">📖 매몰된 광산에 갇힌 실종자들의 일지</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30139" target="_blank">📖 심야 토크쇼 잭의 Late Night Talks</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28300" target="_blank">📖 Schizophrenia</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27769" target="_blank">📖 수민아, 창 밖에 괴물이 있어.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31306" target="_blank">📖 심연을 들여다보는 방법</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31334" target="_blank">📖 위키펌) 남곡터널 연쇄 실종 사건</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=29776" target="_blank">📖 모든 것에는 대가가 따르기 마련이다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30879" target="_blank">📖 죽기 전에 듣고 싶은 노래 사이트 아는 사람?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30433" target="_blank">📖 紅 梅 花</a></li>
+          </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">☀️ 2분기 (Q2)</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36534" target="_blank">📖 테라리움</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35743" target="_blank">📖 탈출에 필요한 물품을 작성해 주세요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32937" target="_blank">📖 "저는 죽어서 어디로 가나요?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36246" target="_blank">📖 폭탄이다-! 우린 모두 죽게 될 거야!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35147" target="_blank">📖 ㅡ공고ㅡ 육하원칙의 사내를 만났다면 연락 주십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35902" target="_blank">📖 잠에 들면 나갈 수 있는 방</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33254" target="_blank">📖 내가 살아온 인생이 모두에게 공개된다면?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34352" target="_blank">📖 “크리스마스 전까지 여친 사귀는 꿀팁 준다.”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36304" target="_blank">📖 그 카페 화장실이 이상하다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34792" target="_blank">📖 스님, 어디 계십니까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33972" target="_blank">📖 연도별 초·중·고 희망 직업 순위 통계</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35957" target="_blank">📖 금성에서 온 목소리</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33494" target="_blank">📖 "저는 살아서 무엇이 되나요?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34775" target="_blank">📖 오늘의 메뉴</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34027" target="_blank">📖 딸기향</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33353" target="_blank">📖 “당신은 지구의 평균값이에요.”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34771" target="_blank">📖 스핑크스는 바라는 자에게 찾아옵니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35017" target="_blank">📖 감염되지 않았다면, 우리에게 와주십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36172" target="_blank">📖 편의점 알바가 자주 바뀐다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34585" target="_blank">📖 귀하의 눈 앞엔 어떤 불상이 있습니까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32431" target="_blank">📖 지금 당장 옷 다 벗어.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36354" target="_blank">📖 "오빠, 나 오늘 오빠랑 메루리링 하고 싶어."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35474" target="_blank">📖 구름풍선이 터지면 이렇게 해야해요!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32894" target="_blank">📖 선생님 전 3과 7과 8을 사랑합니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34394" target="_blank">📖 내가 엄마를 생매장했다고 하는데, 문제가 있다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35032" target="_blank">📖 동네 슈퍼에서 사 온 삼겹살</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35057" target="_blank">📖 나폴리탄 동화 단편선</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36651" target="_blank">📖 안심하셔도 좋습니다, 당신은</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34814" target="_blank">📖 “요즘 괴담들은 하나도 안 무서워요.”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34856" target="_blank">📖 "소형 씨, 또 변신했습니까?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33098" target="_blank">📖 아직도 궁금한 게 많지만 역시 알고 싶지는 않다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36068" target="_blank">📖 死語</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35860" target="_blank">📖 나는 동생이 또 장난치는 줄 알았지</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35411" target="_blank">📖 성주시 구도심에 대해 아시는 분 있나요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35382" target="_blank">📖 "비정한 세상에서 인간으로 살아남을 것"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32141" target="_blank">📖 "저만 믿고 따라오세요"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35736" target="_blank">📖 토끼 주워왔는데 뭐 먹여야 됨?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35385" target="_blank">📖 호흡의 연대기</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32193" target="_blank">📖 솔직히 그렇게 엄청 사랑하지는 않는 동생에게</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34573" target="_blank">📖 알아두면 유용한 기초 외국어 회화 표현들</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33784" target="_blank">📖 당신은 세 가지 질문을 할 수 있습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35371" target="_blank">📖 지워지지 않는 그녀의 체취</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34058" target="_blank">📖 [선하십시오, 살기 위해서.]</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33272" target="_blank">📖 어느 날, 하늘에서 천사가 내려왔습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35939" target="_blank">📖 이곳은 이끼 낀 숲, 코케모리입니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36326" target="_blank">📖 그걸 왜 태웠어요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36177" target="_blank">📖 연방정부 제공 - 레도비체 공항</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32606" target="_blank">📖 진심으로 나폴리탄이 재밌냐?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33849" target="_blank">📖 눈사람 관리자를 위한 업무 지침서.txt</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32303" target="_blank">📖 문이 열릴 때마다 설레는 건 처음이에요.</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 2025년 하반기 명작 단편선</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🍂 3분기 (Q3)</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=41637" target="_blank">📖 &lt;귀봉고등학교 기숙사 규칙서&gt;</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37420" target="_blank">📖 나무를 숨기려면 숲으로</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37411" target="_blank">📖 [원숭이의 발]에 오신 여러분, 안타깝습니다!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37365" target="_blank">📖 오감도</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38194" target="_blank">📖 우리가 하게 될 일</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38040" target="_blank">📖 살인후자살자반동</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38859" target="_blank">📖 당신에겐 10포인트가 있습니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=41026" target="_blank">📖 “뭐, 능력껏 탈출해 보시길 바랍니다.”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39974" target="_blank">📖 아 그 그 그 뭐더라</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39466" target="_blank">📖 그들은 하고 싶은 말을 방명록이 아닌 다른 곳에 적어두었다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37872" target="_blank">📖 태양신 등급 김성태씨의 지식인 답변 모음</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37949" target="_blank">📖 엘리베이터는 아직 올라가고 있다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=41747" target="_blank">📖 [대회3] 몽중몽설</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38118" target="_blank">📖 복제인간 만드는 법</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37805" target="_blank">📖 워터 슬라이드가 끝나지 않는다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37692" target="_blank">📖 '뒤집혀진 집' 탈출 성공/실패 사례집</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=40387" target="_blank">📖 어쨌든 좋았쓰!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37561" target="_blank">📖 간절한 소원이 있는 자, 왕의 장원으로</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=40527" target="_blank">📖 당신은 탑승해선 안되는 기차에 올라타셨습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39108" target="_blank">📖 [사진주의] 로봇이 아닙니다¿</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=41935" target="_blank">📖 안녕하세요 답 받으면 지울게요 질문 대답 사례합니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38889" target="_blank">📖 탈출할 수 있는 방.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38971" target="_blank">📖 최악의 결과를 알려드립니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39269" target="_blank">📖 나 7살때 워터파크에서 길을 이러버렸어요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=41930" target="_blank">📖 "모든 것은 당신에게 달렸습니다."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38626" target="_blank">📖 기둥 게임</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38715" target="_blank">📖 나는 타인의 불행이 웃기다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39251" target="_blank">📖 [재업] “그래서 대체 내 딸이 어디에 있다는 거요?”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39199" target="_blank">📖 [ 나폴리탄 괴담 갤러리 이름 변경 안내 ]</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39441" target="_blank">📖 우리 사장님 진짜 미친 거 같아요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=40575" target="_blank">📖 703호 입주자에게 보낸 쪽지</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37982" target="_blank">📖 제가 삭제한 글이 자꾸 되돌아오는데 어떡하죠?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38722" target="_blank">📖 리셋: 루프를 멈춰야 한다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=40944" target="_blank">📖 이 곳은 무지개랜드!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39480" target="_blank">📖 [지구 의지 판별기]</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39238" target="_blank">📖 [사진주의] 숨은그림찾기 게임¿</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39672" target="_blank">📖 여기는 병신리요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38519" target="_blank">📖 여긴 소설 속이에요. 난 책 밖에서 왔구요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=41551" target="_blank">📖 19) 섹스하지 않으면 나갈 수 없는 방</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37256" target="_blank">📖 아버지, 왜 이제서야</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39087" target="_blank">📖 이번에 새로 들어온 직장 동료가 이상하다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=40516" target="_blank">📖 나는, 현재 이런 아파트에 살고 있다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=40680" target="_blank">📖 정광리 종합터미널은 어떤 장소인가?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37505" target="_blank">📖 어렸을때 기억임</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39142" target="_blank">📖 OTT 어플 리뷰</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=40792" target="_blank">📖 한반도의 역사 ¿ (2050)</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39360" target="_blank">📖 나는 그냥 내가 남의 말을 잘 들어주는 사람인 줄 알았지.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38431" target="_blank">📖 뭔가를 빼먹은 기분이 들었다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=41349" target="_blank">📖 소리의 박물관</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37352" target="_blank">📖 "우리 아파트 캣맘 좀 어떻게 해주세요."</a></li>
+          </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">❄️ 4분기 (Q4)</h4>
+          <ul class="category-list" style="margin-left: 8px;">                          
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43508" target="_blank">📖 [2] 확률적으로 나갈 수 있는 방</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43225" target="_blank">📖 "문서 오염이 일어날때, 가장 먼저 오염되는 문단이 뭔지 알아?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=45254" target="_blank">📖 이동할 페이지 번호를 입력하세요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44950" target="_blank">📖 창작 말고 자기가 겪은 썰도 받아줌? 망태할아버지 썰</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43115" target="_blank">📖 [1] 차가운 기계 속에서.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42999" target="_blank">📖 전날 먹은 음식이 되돌아온다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43195" target="_blank">📖 [4] 인류 멸망, 사망자는 0명</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44809" target="_blank">📖 제미니 말고 gpt 써라</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44926" target="_blank">📖 악몽열차에 탑승하신 당신, 유감입니다!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44881" target="_blank">📖 언어학자와 지질학자의 학회가 겹치는 일도 종종 있군요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=45584" target="_blank">📖 0.5초</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=45540" target="_blank">📖 &lt;멋진 산타클로스가 되는 방법!&gt;</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43167" target="_blank">📖 [3] 당신은 죄인입니까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44995" target="_blank">📖 "너 간츠펠트 효과라고 알아?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42446" target="_blank">📖 당신을 위한 내비게이션 ¿</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44306" target="_blank">📖 괴담 읽는 올바른 자세</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44440" target="_blank">📖 23세 남성 두 명이 취한 채로 차를 타고 맥도날드로 향하던 중이였다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44299" target="_blank">📖 충분히 재밌으시오, 글을 끝까지 읽을 만큼만이라도</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42904" target="_blank">📖 1. 새마음 수녀원 기숙학교 생존 수칙</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43293" target="_blank">📖 4]최악과 차악, 최선과 차선의 느낌은 다르지 않나?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=45218" target="_blank">📖 괴담 하나만 찾아 줄 사람</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44651" target="_blank">📖 “설마 메뉴얼에 적혀있는 대로, 전화할 생각이면 당장 그만둬라”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43322" target="_blank">📖 구멍에 햄스터를 넣어주세요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44375" target="_blank">📖 자식의 숨을 제 손으로 끊어버린 아비를 아십니까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44536" target="_blank">📖 원하는 것, 혹은 그 반대의 것을 드리겠습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=45779" target="_blank">📖 굳어지기 전의 후두(喉頭)</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44278" target="_blank">📖 탈출할 수 있습니다. 이해만 한다면 ¿</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43872" target="_blank">📖 출몰 주의</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42897" target="_blank">📖 영생하는 법 알려드립니다!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=45800" target="_blank">📖 닫힌 무대 위, 영원한 커튼콜</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=45030" target="_blank">📖 장례식장에선 정숙해주십시오</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44817" target="_blank">📖 수업 시작하면 화장실로 간 뒤에 돌아오지마, 알겠지?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44031" target="_blank">📖 추락하는 것에 날개는 없다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44279" target="_blank">📖 지구가 평평한 이유를 아십니까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44539" target="_blank">📖 식탁 없는 저녁</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42524" target="_blank">📖 당신의 두려움을 극복시켜드립니다!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44699" target="_blank">📖 당신은 평범해지기 위해 무엇까지 할 수 있는가?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=45612" target="_blank">📖 프랙탈</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=45837" target="_blank">📖 고요한 잠을 위하여</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=45103" target="_blank">📖 ※꼭 읽어주세요, 부탁드립니다. [12/03, 12:11]</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44690" target="_blank">📖 가정적인 전제에서 시작하는 추론을 굳이 할 필요가 없다고 여긴 것 같다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43622" target="_blank">📖 아기 생기니까 다들 너무 친절하게 대해주세요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42807" target="_blank">📖 어머니는 제가 어릴 적부터 늘 같은 말씀을 하셨습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42581" target="_blank">📖 그저 사고였을 뿐이야</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42440" target="_blank">📖 '마리 카페' 인간 수칙서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42626" target="_blank">📖 만약 마주친 얼굴이 당신이라면, 왼쪽 문을</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44700" target="_blank">📖 "지후야, 저거 믿지 말고 이걸 꼭 봐줘."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43143" target="_blank">📖 [4] 아키네이터!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44686" target="_blank">📖 신문지로 창문 막은 그 집 아직 사람 산다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43947" target="_blank">📖 어디선가 지독한 악취가 났다</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 2026년 상반기 명작 단편선</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🌱 1분기 (Q1)</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46284" target="_blank">📖 (혐) 일본여행 위기상황별 회화</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46349" target="_blank">📖 재단은 인류를 공격하기 시작했다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47215" target="_blank">📖 "행복한 구로, 야간 민원 전담팀입니다."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46213" target="_blank">📖 회귀자가 회고하는 법</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46902" target="_blank">📖 그냥 개추를 잘 받고 싶었을 뿐인데</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46994" target="_blank">📖 신은 중앙에서 입을 벌린다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46318" target="_blank">📖 어떤 남자가 당신을 따라가요!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46652" target="_blank">📖 인류 존속, 생존자는 0명</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47702" target="_blank">📖 당신들은 '이것'이 무엇인지 알고 찬성했습니까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48215" target="_blank">📖 나는 오늘 어머니를 잡수셨다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48932" target="_blank">📖 이렇게게으르게살수없어운동하러나가기로결심한나</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47080" target="_blank">📖 "고객님, 택배 왔습니다."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46222" target="_blank">📖 초3 때 겪은 실화임</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46139" target="_blank">📖 사랑합니다, 나의 인류여.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47757" target="_blank">📖 방과 후 학교 내 무한 공간 탐사</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48111" target="_blank">📖 나는 예의를 중시하는 사람이다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48241" target="_blank">📖 도대체 뭔 말인지 모르겠네.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46375" target="_blank">📖 알바몬에서 그 공고를 발견한 건 순전히 우연이었다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48012" target="_blank">📖 2026학년도 신입생 여러분 안녕하십니까.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48835" target="_blank">📖 폐함선에 낙오 되었을 때 지구로 돌아가는 법 알려줘</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47477" target="_blank">📖 하객 알바</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48288" target="_blank">📖 그래서 고쳤다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46367" target="_blank">📖 내가 사는 곳은 401호다. 그렇다고 믿고 있다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46240" target="_blank">📖 규암2동 디스코드 소모임</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46531" target="_blank">📖 이거 공식 문서 아니다. 행정반에서 만든것도 아니고.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47430" target="_blank">📖 너무 잘 알아들어서 죄송합니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46544" target="_blank">📖 블루투스를 잘못 연결하는 바람에.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48072" target="_blank">📖 별빛 유치원 제7회 그림잔치에 대한 기록</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47931" target="_blank">📖 [기밀] '비인가 창문 현상'에 대한 긴급 대응 매뉴얼</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46833" target="_blank">📖 피리 부는 사나이</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46470" target="_blank">📖 "버텨내십시오, 우리가 갈 때까지."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48679" target="_blank">📖 축복 받지 못한 사람</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46181" target="_blank">📖 저는 지난 3개월 동안 이 세상에 존재하지 않았습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48147" target="_blank">📖 "그냥 뻘글이었을 뿐인데?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47287" target="_blank">📖 교토식 화법 이해하지 못하면 죽는 방</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46058" target="_blank">📖 K 박사의 동물 상담</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47563" target="_blank">📖 바람이 빠져서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48512" target="_blank">📖 밸런스 게임</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46496" target="_blank">📖 두 발로 걷는 짐승의 고통에 관하여</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=49025" target="_blank">📖 “승객 여러분께 안내드립니다. 곧 종착역에 도착합니다.”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46583" target="_blank">📖 2023년 8월 성준이 위치추적 어플 ¿</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47418" target="_blank">📖 &lt;모든 베란다는 각기 다른 이야기를 가지고 있다 ¿&gt;</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48323" target="_blank">📖 후임 주무관님께.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47614" target="_blank">📖 오후 3시의 사생결단</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=49093" target="_blank">📖 이것은 당신의 죽음에 관한 이야기이다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47795" target="_blank">📖 네이버 지식인 유출 대란 사건을 들어보셨나요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48509" target="_blank">📖 * •  . °</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47511" target="_blank">📖 드르륵... 드르륵... 쿵</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46625" target="_blank">📖 초지능과 대화하는 인간을 위한 안내서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47723" target="_blank">📖 전화해</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 추천 시리즈 모음집</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;"></h4>
+          <ul class="category-list">
+            <li><a href="#" target="_blank"></a></li>
+            <li><a href="#" target="_blank"></a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 2023년 유머 모음</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🏛️ 일반 유머 모음 1</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5083" target="_blank">📖 돌아가시오</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8834" target="_blank">📖 잼민이 많은 판에 scp화는 피할 수 없는 거 같음</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9049" target="_blank">📖 지금 집에 혼자 계신다면 죄송합니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7476" target="_blank">📖 괴이라는 족속들은 교활한 놈들이다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=134" target="_blank">📖 죽어버린 갤러리 안내서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7725" target="_blank">📖 제발 폭격좀 그만하십시오</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=4983" target="_blank">📖 신속하게 그들과 하나가 되십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8827" target="_blank">📖 제발 부탁이니 얌전히 돌아가라.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=82" target="_blank">📖 일상생할에서의 주의사항</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9872" target="_blank">📖 너네들 진짜 순진하다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9053" target="_blank">📖 이제 괜찮습니다, 저만 믿으십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5066" target="_blank">📖 신체부위중 XX을 잘라내십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10848" target="_blank">📖 "괴이라고 전부 나쁜건 아니에요"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7852" target="_blank">📖 파딱 공론화함.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8627" target="_blank">📖 괴담을 너무 읽었다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8199" target="_blank">📖 너네는 사기 당하지 마라 ㄹㅇ</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7917" target="_blank">📖 나는 그들과 하나가 되기로 하였...다?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7086" target="_blank">📖 엄청난 난이도의 즉사트랩에서 살아남는 법</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6644" target="_blank">📖 괴이 아포칼립스에서 나만 회귀를?!?!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8770" target="_blank">📖 축하합니다! 그것과 성관계를 가지셔도 좋습니다!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8654" target="_blank">📖 "실례지만 승객분들 중에 의사 계십니까??" - 챌린지</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6468" target="_blank">📖 당신은 우리와 하나가 되었... 어라?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7268" target="_blank">📖 매뉴얼을 따라 행동하는 사람</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10069" target="_blank">📖 니네도 해봐라 이거 은근 재밌음 ㅋㅋㅋㅋ</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8698" target="_blank">📖 선배님 질문 드리고 싶은게 하나 있는데요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2720" target="_blank">📖 나폴리탄 ㄹㅇ 존나 재미있네</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9767" target="_blank">📖 교수님 고소했다...</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7812" target="_blank">📖 절대 눈 앞의 문을 그냥 열어서는 안됩니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6651" target="_blank">📖 나폴리탄 괴담 마이너 갤러리</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=9428" target="_blank">📖 성교육 선생님은 바구니를 들고오셨다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8991" target="_blank">📖 "당신의 동생과 XX하지 않으면 이곳을 벗어날 수 없다."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=927" target="_blank">📖 박광례 할머니 돌봄 지침서_1.2.txt</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5228" target="_blank">📖 "....잠깐, 저게 대체 뭐지"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6340" target="_blank">📖 괴물과 싸우는 사람은 스스로 괴물이 되지 않도록 조심해야 한다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=10564" target="_blank">📖 괴이도 물리적으로 해결 가능할까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8291" target="_blank">📖 도대체 이딴 규칙은 누가 알아낸 거에요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5955" target="_blank">📖 안녕하세요 나는 Creature 이다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2067" target="_blank">📖 나 잼민이 글 흉내 잘 냄</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8993" target="_blank">📖 만약 도서실의 불이 갑자기 꺼진다면 죄송합니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=7500" target="_blank">📖 괴이들은 우리 사이에 잠입하고 있다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2095" target="_blank">📖 &lt;부산시를 여행하는 시민을 위한 안내서 / 부산시장 檢定 完.&gt;</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=8474" target="_blank">📖 공유 킥보드와 소중한 시간</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5298" target="_blank">📖 잼민이 작품 특징ㅋㅋ</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=4670" target="_blank">📖 규칙서에 한국어 지원이 안되면 어떡하죠?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=1880" target="_blank">📖 (고전)중독증</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5480" target="_blank">📖 나무를 숨기려면</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5929" target="_blank">📖 上 - 괴이에 휘말리지 못한 이들을 위한 고등학교 생존 지침서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2201" target="_blank">📖 괴이 2700년차다 나때 악기바리는 이랬다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=5317" target="_blank">📖 디시인사이드 이용안내서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=4347" target="_blank">📖 괴이로 이루어진 어느 폐공장에 적혀져있는 규칙서</a></li>
+          </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🏛️ 일반 유머 모음 2</h4>
+          <ul class="category-list">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6971" target="_blank">📖 [대회] [괴담대회]■■ 갤러리 [징병제]를 선포함</a></li>
+          </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🏛️ 패러디 유머 모음</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2032" target="_blank">📖 '맞서 싸우십시오'</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=486" target="_blank">📖 [패러디] 해동아파트 107동의 진실</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=4334" target="_blank">📖 맞서 싸우십시오 만화</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2539" target="_blank">📖 '불의에 저항하십시오'</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2589" target="_blank">📖 '맞서 싸우십시오'</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2112" target="_blank">📖 개정판 신규 직원 교육용 안내서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=2216" target="_blank">📖 아니 씨발 부산을 무슨 생지옥으로 묘사해놨네</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=6369" target="_blank">📖 맞서 싸우십시오 그려봄</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=4248" target="_blank">📖 괜찮습니다. 당신을 해치지 않아요.</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 2024년 유머 모음</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🏛️ 일반 유머 모음 1</h4>
+         <ul class="category-list" style="margin-left: 8px;">
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18425" target="_blank">📖 "가장 친한 친구 3명의 이름을 말해라"</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17977" target="_blank">📖 "천명이 들어가서 백명이 나오는 곳은 어디게요?"</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19910" target="_blank">📖 액자 속 모나리자가 웃고 있습니까?</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24189" target="_blank">📖 제발 말 좀 끝까지 들으라고!</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20875" target="_blank">📖 씨발 그냥 다 해줬잖아</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19838" target="_blank">📖 방</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12574" target="_blank">📖 엘스웨어 거주민 규칙서</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20749" target="_blank">📖 매뉴얼이 유출됐지만 아무도 안 쓰는 거니 좋았쓰!</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22647" target="_blank">📖 읽었을 때 지치는 글의 특징</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18972" target="_blank">📖 ㅈ같은 꿈 꿨는데 ㅆㅂ</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18878" target="_blank">📖 68세 김순자 할머니는 깜빡 지하철에서 잠이 들어버렸다.</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21725" target="_blank">📖 내가 탈출한 방법</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13112" target="_blank">📖 만약 해당 생명체가 회색이 아닐경우, 행복하세요</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25033" target="_blank">📖 작정하고 거지같이 쓴 호텔 안전수칙</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19478" target="_blank">📖 [경고] 진입금지입니다. 계속해서 이 길로 가면</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22388" target="_blank">📖 아니 씨발 그걸 왜 말도없이</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25689" target="_blank">📖 살고싶다면 계단과 엘레베이터 중에 고르시오.</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19057" target="_blank">📖 괴이새끼들 염산도 못 먹냐고 놀리길래</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23774" target="_blank">📖 [괴짝] - 소개팅부터 연애까지 데이팅 앱</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20863" target="_blank">📖 평행 세계의 스마트폰</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20065" target="_blank">📖 한 번의 실수조차 허용되지 않습니다</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25546" target="_blank">📖 말은 해를 자주 쳐다보는 유일한 동물이다.</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26262" target="_blank">📖 선각사(卍)에 내리막길은 없습니다.</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19012" target="_blank">📖 괴이 새끼들은 양심이 없냐</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15189" target="_blank">📖 뒤를 보지 마십시오.</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19465" target="_blank">📖 IP</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26032" target="_blank">📖 괴이는 산소로 호흡할 수 없습니다</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13417" target="_blank">📖 가장 마지막에 하던 게임 무기도 아니고 뭐?</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=18762" target="_blank">📖 투명 드래곤</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=17931" target="_blank">📖 씨발 나폴리탄 꿈 꿨는데 이게 맞냐?</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25355" target="_blank">📖 [순정남] 지스타 2024 나폴리탄 괴담 TOP 5</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=14505" target="_blank">📖 이 글을 읽으면 당신은 사망합니다</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11958" target="_blank">📖 고양이 사진.</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20199" target="_blank">📖 베트남의 수상한 알바</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=13381" target="_blank">📖 부탁이니 그만 좀 오십쇼</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25994" target="_blank">📖 99.9%가 모르는 괴이현상 탈출법</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12041" target="_blank">📖 아니 그러니까, 씨팔 규칙이 애매할때는 뭐 어쩌라는거야</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22186" target="_blank">📖 가장 위험한 귀신은 웃는귀신, 춤추는 귀신이라 한다.</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=25929" target="_blank">📖 그녀를 그리워하며</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26949" target="_blank">📖 이거 읽어</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20294" target="_blank">📖 "멍청한 놈들, 이런 곳에 규칙서를 두고가?"</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12626" target="_blank">📖 당신들의 살점이 그렇게 가치있다고 생각합니까?</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22582" target="_blank">📖 경고! 이 앞 500m..</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23791" target="_blank">📖 마지막으로 본 창작물 속에서 1달간 생존하십시오.</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11379" target="_blank">📖 낲붕아 이리와서 앉아봐라.</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=14287" target="_blank">📖 침대 밑에서 인기척이 느껴진다.</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26152" target="_blank">📖 선원들은 배에 절대 소고기를 싣지 않아요.</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19518" target="_blank">📖 가면 뒤에 있는 것은</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=12752" target="_blank">📖 절대 배가 고프다는 말을 하지 마십시오</a></li>
+          <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=11741" target="_blank">📖 중지. 이 글을 보십시오</a></li>
+        </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🏛️ 일반 유머 모음 2</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24283" target="_blank">📖 부디 민천 테마파크를 즐겨주십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21941" target="_blank">📖 좆 됐다. 택시 잘 못 탄 것 같다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23457" target="_blank">📖 지금 내가 짜증이 좀 많이 난 상태거든? 눈치껏 탈출해.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22723" target="_blank">📖 "...한다면, 권총을 스스로에게 사용하십시오."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21917" target="_blank">📖 웃고 있는 귀신은 위험하다고 했었나요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22687" target="_blank">📖 음!! picture을 매우 NICE 하게 찍었는걸?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21338" target="_blank">📖 나폴리탄이 이렇게 맛있을 줄이야, 아싸라비아 차차차!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21293" target="_blank">📖 요즘 우리 딸이 이상하다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=26759" target="_blank">📖 잘 쓴 괴담을 과학적으로 분석해보니</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=24205" target="_blank">📖 나폴 너무 많이 봐서 부처 보고 의심하는거 좀 써주셈</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23831" target="_blank">📖 "만약, 내가 사실 현실세계의 사람이 아니라면?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22162" target="_blank">📖 자..얘들아 내리기전에 다시 한번 말할 테니 잘들으렴.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23606" target="_blank">📖 사례괴담</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20776" target="_blank">📖 으악, 규칙서 9번의 피눈물 거미다!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=20991" target="_blank">📖 수준 낮은 규칙</a></li>
+          </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🏛️ 패러디 유머 모음</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21792" target="_blank">📖 맞서 싸워라아아아앗~~!!!!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=14199" target="_blank">📖 재미로 써 본 If 나폴리탄</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23876" target="_blank">📖 [사업자교육] 괴이가 해선 안되는 '실수' 사례모음</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22896" target="_blank">📖 엄마랑 아빠가 빠졌어요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23449" target="_blank">📖 &lt; 잡_몬 &gt;앱을 다운로드하세요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=21662" target="_blank">📖 [괴이] 죄송합니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=14610" target="_blank">📖 악마가 동전 던지기를 제안했다 if루트</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15611" target="_blank">📖 초록색 촉수가 문을 두드린다면 정중히 거절하십시오</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23474" target="_blank">📖 [단톡방 공지] 괴이가 건드리지 않는 인간 목록</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19963" target="_blank">📖 " 맞서 싸우십시오 "</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=19611" target="_blank">📖 외전) 게 같은 내 새끼</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=23239" target="_blank">📖 안녕하십니까, 사월동 주민 여러분!</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=15824" target="_blank">📖 진짜 간단해. 운전해서 건너기만 하면 된다니까?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=22878" target="_blank">📖 톨게이트 직원의 특별한 하루.</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 2025년 유머 모음</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🏛️ 일반 유머 모음 1</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30928" target="_blank">📖 이겼지만 못 싸웠다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42778" target="_blank">📖 당신이 이 글을 읽을 수 있다면</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=29979" target="_blank">📖 '죄송합니다. 신속하게 그들과 하나가 되십시오.'</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35082" target="_blank">📖 이름만 바꾸면 된다니까요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27246" target="_blank">📖 후배야, 부디 잔소리라고 생각하지 말고 들어라.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39065" target="_blank">📖 약혐) 규칙괴담 너무 많아</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31754" target="_blank">📖 괴뮤니티</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31110" target="_blank">📖 병원에서 일하는 중인데 좆소 같아서 개좆같다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35293" target="_blank">📖 공포</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42732" target="_blank">📖 99% 확률로 완장 교배프레스 짤</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33053" target="_blank">📖 생성형 AI와의 대화.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35843" target="_blank">📖 "아ㅋㅋ 얘들아 이거 한 번 봐봐라"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27771" target="_blank">📖 규칙괴담때문에 자꾸 이상한 소문 돈다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28599" target="_blank">📖 인육     공포증</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37090" target="_blank">📖 내가 이래서 널 싫어했었어</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28988" target="_blank">📖 괴이랑 추천수100넘는글 쓸 실력 달라고 거래했다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36812" target="_blank">📖 "그런데 선배, 이렇게 복잡한 수칙서를 어떻게 다 외워서 생환하나요?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=44305" target="_blank">📖 나폴리탄 남고생의 일상</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=30519" target="_blank">📖 도배</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33633" target="_blank">📖 괴이현상에서 벗어나기 위한 가이드 (내용 김)</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32546" target="_blank">📖 "만약 음식에서 벌레가 보일 경우, 죄송합니다."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37202" target="_blank">📖 대체 어떤 인간을 데리고 온거야?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27546" target="_blank">📖 방금 괴이 만나고 왔다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37287" target="_blank">📖 "눈 감아봐라, 깜깜하지?"</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=29536" target="_blank">📖 푸룬주스</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=29764" target="_blank">📖 [다섯 번 질문할 수 있는 수영장]</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37851" target="_blank">📖 진심으로 분노해야 탈출할 수 있는 방</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42484" target="_blank">📖 “선배님, 이공간에서 탈출하는 게 왜 죄다 한국인일까요?”</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32293" target="_blank">📖 클릭하면 죽입니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42419" target="_blank">📖 푸른색 길을 따라서 쭉 그대로 가면(가면라이더 X)</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42260" target="_blank">📖 월간괴이 9월호  자원 고갈 시대: 괴이 개체 유지 전략</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33243" target="_blank">📖 평가 빌런 땜에 갤 쳐 망햇음 진짜</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=27657" target="_blank">📖 나 괴이인데 요즘 너무 우울해</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32031" target="_blank">📖 게임 좋아하시나요?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=41345" target="_blank">📖 퇴근길에 꽃다발을 하나 구입하십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39513" target="_blank">📖 주의하십시오, 이 앞은 장미 궁전입니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32632" target="_blank">📖 [식품안전관리청] 여름철 식중독 예방 안전 수칙서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36006" target="_blank">📖 가끔 글 읽을 때 이러지 않아?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35754" target="_blank">📖 당장 그 현실에서 나와야 합니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32157" target="_blank">📖 샤워 해본 후기</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=40041" target="_blank">📖 괴이를 올려치지 말아 주세요</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42971" target="_blank">📖 이상한 곳에 떨어진 뒤 규칙서를 주웠다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39194" target="_blank">📖 제품을 세워서 사용하지 마시오</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=31917" target="_blank">📖 괴이인사이드</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=38745" target="_blank">📖 생존하십시오.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39828" target="_blank">📖 제발 이 글을 보지 말아주세요. 목숨이 달린 일입니다. 저를 걸고 내기를</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35999" target="_blank">📖 긁히다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=35230" target="_blank">📖 불알친구가 불알이 되었다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=33332" target="_blank">📖 질문</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=32996" target="_blank">📖 규칙은 뒷면에 상세하게 설명되어 있습니다.</a></li>
+          </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🏛️ 일반 유머 모음 2</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=43543" target="_blank">📖 구령 퍼스트에듀포레센텀리버시그니엘 수칙서</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37975" target="_blank">📖 아니 근데 암호랍시고 숨겨 놓은게 너무 대충 아니냐ㅋㅋ</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39234" target="_blank">📖 500자 이내의 규칙괴담을 쓰려고 도움을 청했다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=40623" target="_blank">📖 폐급 새끼야 수칙서좀 똑바로 쓰라고</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=45620" target="_blank">📖 당장 그 집에서 나와.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=37977" target="_blank">📖 괴이들아 나 이거 어떻게 해야하냐</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=36309" target="_blank">📖 시간은 존재하지 않는다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=39878" target="_blank">📖 "모든 규칙은 1번이 중요해요."</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42710" target="_blank">📖 월간괴이 10월호  괴이의 전략적 생존 지침: 귀성길 '인간 자원' 확보</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42463" target="_blank">📖 시험을 쳤습니다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=42462" target="_blank">📖 "휴스턴, 난 틀렸마. 모든 메 믹각미 되머간마."</a></li>
+          </ul>
+        </div>
+
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🏛️ 패러디 유머 모음</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34933" target="_blank">📖 할머니집에서의 여름방학</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=28739" target="_blank">📖 [사례괴담] 나폴리탄 괴담에서 살아남기</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=34278" target="_blank">📖 나폴리탄 괴담이 아니야. 다들 미쳐버린거야?</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=41536" target="_blank">📖 [□□]식당 안내문</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=40644" target="_blank">📖 낲갤 레전드 만화로 짧게 그려봄</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 2026년 유머 모음</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">🏛️ 일반 유머 모음</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46931" target="_blank">📖 나폴리탄 괴담 쓰다가 노벨문학상 받은 썰 푼다.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48943" target="_blank">📖 규칙서가 오염되고 있습니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=47181" target="_blank">📖 빵 하나, 손가락 3개.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48493" target="_blank">📖 차라리 수칙서라도 좀 써줘</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48236" target="_blank">📖 노트는 유지됩니다. 다음 사람을 위한 전언을 남기세요.</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=46859" target="_blank">📖 안녕하세요 잇섭입니다 오늘은 백룸 리뷰를 해보도록 하겠습니다</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48429" target="_blank">📖 이 수칙만 있으면 누구나 빠져나갈 수 있다! 종로8가 탈출 가이드</a></li>
+            <li><a href="https://gall.dcinside.com/mgallery/board/view/?id=napolitan&no=48035" target="_blank">📖 생활 속 괴이 오인 정보 정정 안내 [제 7차]</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 숨겨진 글자가 존재하는 게시글 목록</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;"></h4>
+          <ul class="category-list">
+            <li><a href="#" target="_blank"></a></li>
+            <li><a href="#" target="_blank"></a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="category-group collapsed" style="border-bottom: 1px dashed var(--line); padding-bottom: 16px;">
+        <h3 style="font-size: 16px; margin-bottom: 14px;">📅 문자메시지 괴담 모음집</h3>
+        
+        <div class="sub-category collapsed" style="margin-left: 10px;">
+          <h4 style="margin: 0 0 8px 0; font-size: 13px; color: var(--muted); font-weight: 700;">[시리즈] 문자메시지 괴담</h4>
+          <ul class="category-list" style="margin-left: 8px;">
+            <li><a href="https://m.dcinside.com/board/napolitan/346" target="_blank">📖 계량기지침 주소기입 후 문자부탁드립니다.</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/506" target="_blank">📖 긴급재난문자</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/593" target="_blank">📖 긴급 재난 문자</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/938" target="_blank">📖 문자왔네? ㅋㅋ 나같은 아싸새키한테 문자...가?</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/1571" target="_blank">📖 긴급재난문자</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/1690" target="_blank">📖 [서울특별시] 오늘 6시 32분 서울지역에 경계경보 발령.</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/1844" target="_blank">📖 안전 안내 문자</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/4569" target="_blank">📖 출처가 불분명한 우편물</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/6648" target="_blank">📖 [긴급재난문자]육체를 되찾으십시오.</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/6949" target="_blank">📖 [괴담대회] 안전 안내 문자</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/7626" target="_blank">📖 [부산광역시청] 호우주의보 발효. 빗길 안전에 주의하시기 바랍니다.</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/8438" target="_blank">📖 [Web발신]예주시는....</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/8777" target="_blank">📖 괴담에 의한 정신질환 대비 안내 문자</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/8915" target="_blank">📖 [긴급재난문자] 비상경계경보를 발령합니다.</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/10390" target="_blank">📖 ██시 안전 안내 문자</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/10389" target="_blank">📖 제목 : 스팸(?)문자가 자꾸 날아오는데, 이거 뭘까요?</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/10619" target="_blank">📖 [ 문자 전송 실패함 ]</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/10777" target="_blank">📖 용현 테크놀러지 공장 불산 누출 사고</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/10895" target="_blank">📖 [부산시] 11. 23.</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/11251" target="_blank">📖 2편)메시지 오후 **:** [■■■■■]</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/11525" target="_blank">📖 x26a0;+대설주의보x26a0;+</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/14895" target="_blank">📖 [행정안전부] 현재 대한민국 전역에서 괴현상 발생중</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/18514" target="_blank">📖 진심을 다하는 행복택배입니다.</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/18806" target="_blank">📖 이 글을 보는 즉시 복사해 1시간 내에 10명에게 보내지 않으면···</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/18928" target="_blank">📖 [초단편] 재난문자</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/20274" target="_blank">📖 통상주의보</a></li>
+            <li><a href="https://m.dcinside.com/board/napolitan/21095" target="_blank">📖 부산광역시 안전안내문자</a></li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <script>
+    const urlInput = document.getElementById('urlInput');
+    const extractBtn = document.getElementById('extractBtn');
+    const statusEl = document.getElementById('status');
+    const resultEl = document.getElementById('result');
+    const titleEl = document.getElementById('title');
+    const metaEl = document.getElementById('meta');
+    const previewEl = document.getElementById('preview');
+    const htmlBox = document.getElementById('htmlBox');
+    const textBox = document.getElementById('textBox');
+    const copyRichBtn = document.getElementById('copyRichBtn');
+    const copyTextBtn = document.getElementById('copyTextBtn');
+    const imageToggleBtn = document.getElementById('imageToggleBtn');
+    const previewTab = document.getElementById('previewTab');
+    const htmlTab = document.getElementById('htmlTab');
+    const textTab = document.getElementById('textTab');
+
+    const state = {
+      htmlWithImages: '',
+      htmlNoImages: '',
+      text: '',
+      imageCount: 0,
+      imagesEnabled: true,
+      mode: 'preview'
+    };
+
+    function setStatus(message, isError = false) {
+      statusEl.textContent = message;
+      statusEl.className = isError ? 'status error' : 'status';
+    }
+
+    function currentHtml() {
+      return state.imagesEnabled ? state.htmlWithImages : state.htmlNoImages;
+    }
+
+    function renderCurrentBody() {
+      const html = currentHtml();
+      previewEl.innerHTML = html;
+      htmlBox.value = html;
+      textBox.value = state.text;
+      imageToggleBtn.textContent = state.imagesEnabled ? '사진 ON' : '사진 OFF';
+      imageToggleBtn.classList.toggle('success', state.imagesEnabled);
+      imageToggleBtn.classList.toggle('toggle-off', !state.imagesEnabled);
+      metaEl.textContent = state.imageCount > 0
+        ? `본문 사진 ${state.imageCount}개 · 현재 ${state.imagesEnabled ? '표시 중' : '숨김'}`
+        : '본문 사진 없음';
+      showMode(state.mode);
+    }
+
+    function showMode(mode) {
+      state.mode = mode;
+      previewEl.style.display = mode === 'preview' ? 'block' : 'none';
+      htmlBox.style.display = mode === 'html' ? 'block' : 'none';
+      textBox.style.display = mode === 'text' ? 'block' : 'none';
+      previewTab.classList.toggle('active', mode === 'preview');
+      htmlTab.classList.toggle('active', mode === 'html');
+      textTab.classList.toggle('active', mode === 'text');
+    }
+
+    async function extract() {
+      const url = urlInput.value.trim();
+      extractBtn.disabled = true;
+      setStatus('본문을 가져오는 중입니다...');
+      resultEl.style.display = 'none';
+
+      try {
+        const response = await fetch('/api/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await response.json();
+        if (!data.ok) throw new Error(data.error || '본문 추출에 실패했습니다.');
+
+        state.htmlWithImages = data.html || '';
+        state.htmlNoImages = data.html_no_images || '';
+        state.text = data.text || '';
+        state.imageCount = data.image_count || 0;
+        state.imagesEnabled = true;
+        state.mode = 'preview';
+
+        titleEl.textContent = data.title || '제목 없음';
+        resultEl.style.display = 'block';
+        renderCurrentBody();
+        setStatus('');
+        previewEl.scrollTop = 0;
+        htmlBox.scrollTop = 0;
+        textBox.scrollTop = 0;
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      } catch (error) {
+        setStatus(error.message, true);
+      } finally {
+        extractBtn.disabled = false;
+      }
+    }
+
+    async function copyRich() {
+      const html = currentHtml();
+      const text = state.text;
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          const item = new ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([text], { type: 'text/plain' })
+          });
+          await navigator.clipboard.write([item]);
+        } else {
+          const range = document.createRange();
+          range.selectNodeContents(previewEl);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          document.execCommand('copy');
+          selection.removeAllRanges();
+        }
+        setStatus(state.imagesEnabled ? '스타일과 사진이 포함된 본문을 복사했습니다.' : '사진 없이 스타일 포함 본문을 복사했습니다.');
+      } catch (error) {
+        setStatus('브라우저가 스타일 복사를 막았습니다. 미리보기 영역을 직접 드래그해서 복사하세요.', true);
+      }
+    }
+
+    async function copyText() {
+      try {
+        await navigator.clipboard.writeText(state.text);
+        setStatus('텍스트만 복사했습니다.');
+      } catch (error) {
+        textBox.style.display = 'block';
+        textBox.select();
+        document.execCommand('copy');
+        setStatus('텍스트만 복사했습니다.');
+      }
+    }
+
+    extractBtn.addEventListener('click', extract);
+    urlInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.isComposing) extract();
+    });
+    copyRichBtn.addEventListener('click', copyRich);
+    copyTextBtn.addEventListener('click', copyText);
+    imageToggleBtn.addEventListener('click', () => {
+      state.imagesEnabled = !state.imagesEnabled;
+      renderCurrentBody();
+    });
+    previewTab.addEventListener('click', () => showMode('preview'));
+    htmlTab.addEventListener('click', () => showMode('html'));
+    textTab.addEventListener('click', () => showMode('text'));
+
+    // --- 사이드바 제어 로직 ---
+    const openSidebarBtn = document.getElementById('openSidebarBtn');
+    const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+    function toggleSidebar(show) {
+      if (show) {
+        sidebarOverlay.style.display = 'block';
+        // 브라우저 렌더링을 위해 아주 잠깐 대기 후 애니메이션 클래스 추가
+        requestAnimationFrame(() => {
+          sidebar.classList.add('show');
+          sidebarOverlay.classList.add('show');
+        });
+      } else {
+        sidebar.classList.remove('show');
+        sidebarOverlay.classList.remove('show');
+        // 애니메이션이 끝난 후 display: none 처리
+        setTimeout(() => { sidebarOverlay.style.display = 'none'; }, 300);
+      }
+    }
+
+    openSidebarBtn.addEventListener('click', () => toggleSidebar(true));
+    closeSidebarBtn.addEventListener('click', () => toggleSidebar(false));
+    sidebarOverlay.addEventListener('click', () => toggleSidebar(false)); // 배경 누르면 닫힘
+
+    // --- 사이드바 아코디언(접기/펴기) 제어 로직 ---
+    
+    // 1. 대분류(h3 연도) 클릭 시 접기/펴기
+    document.querySelectorAll('.category-group h3').forEach(h3 => {
+      h3.addEventListener('click', (e) => {
+        // 링크나 다른 요소를 클릭한 게 아닐 때만 작동
+        const group = h3.closest('.category-group');
+        group.classList.toggle('collapsed');
+      });
+    });
+
+    // 2. 소분류(h4 분기) 클릭 시 접기/펴기
+    document.querySelectorAll('.sub-category h4').forEach(h4 => {
+      h4.addEventListener('click', (e) => {
+        const subCat = h4.closest('.sub-category');
+        subCat.classList.toggle('collapsed');
+      });
+    });
+
+    // --- 사이드바 링크 클릭 시 자동 입력 & 추출 실행 제어 ---
+    document.querySelectorAll('.category-list a').forEach(link => {
+      link.addEventListener('click', function(e) {
+        // 1. 기본 링크 이동 동작 차단
+        e.preventDefault(); 
+        
+        // ⭐ 현재 선택된 링크 표시하기
+        // 먼저 모든 링크에서 'active-link' 디자인을 싹 지워줍니다.
+        document.querySelectorAll('.category-list a').forEach(item => {
+          item.classList.remove('active-link');
+        });
+        // 방금 클릭한 이 링크(this)에만 'active-link' 디자인을 붙여줍니다!
+        this.classList.add('active-link');
+
+        // 2. 링크 주소 가져오기
+        const targetUrl = this.href;
+        
+        // 3. 입력칸에 주소 넣기 (개발자님 ID 적용)
+        const urlInput = document.getElementById('urlInput'); 
+        if (urlInput) {
+          urlInput.value = targetUrl;
+        }
+        
+        // 4. 추출 버튼 누르기 (개발자님 ID 적용)
+        const extractBtn = document.getElementById('extractBtn'); 
+        if (extractBtn) {
+          extractBtn.click();
+        }
+
+        // 5. 사이드바 자동으로 닫기 (개발자님 ID 적용)
+        const sidebar = document.getElementById('sidebar'); 
+        if (sidebar) {
+          sidebar.classList.remove('active', 'open', 'show'); 
+        }
+
+        // 6. 배경 블러(오버레이) 제거하기 (개발자님 ID 적용)
+        const overlay = document.getElementById('sidebarOverlay'); 
+        if (overlay) {
+          overlay.classList.remove('active', 'open', 'show'); 
+          // 만약 클래스로 안 닫히면 아래 주석을 풀어서 강제로 숨겨보세요.
+          // overlay.style.display = 'none'; 
+        }
+
+        // 혹시 body에 잠금 처리가 걸려있다면 풀어줍니다.
+        document.body.classList.remove('sidebar-open', 'no-scroll', 'overflow-hidden');
+      });
+    });
+
+    // ===== 툴바 접기/펴기 (토글) 기능 =====
+    const toggleToolbarBtn = document.getElementById('toggleToolbarBtn');
+    const toolbarContainer = document.getElementById('toolbarContainer');
+
+    if (toggleToolbarBtn && toolbarContainer) {
+      toggleToolbarBtn.addEventListener('click', function() {
+        // 툴바에 'collapsed' 클래스를 뗐다 붙였다 합니다.
+        toolbarContainer.classList.toggle('collapsed');
+        
+        // 현재 상태에 따라 버튼의 글자를 바꿉니다.
+        if (toolbarContainer.classList.contains('collapsed')) {
+          this.textContent = '기능 펼치기 ⚙️';
+        } else {
+          this.textContent = '기능 숨기기 ⚙️';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
