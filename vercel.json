@@ -1,22 +1,8 @@
 {
-  "builds": [
+  "rewrites": [
     {
-      "src": "app.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "index.html",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/extract",
-      "dest": "app.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/extract",
+      "destination": "/app.py"
     }
   ]
 }
