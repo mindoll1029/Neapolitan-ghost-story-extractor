@@ -297,3 +297,18 @@ def api_extract():
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=True)
+
+import os
+
+# api 폴더의 상위(루트) 폴더 경로를 정확히 구합니다.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 💡 메인 화면(/) 접속 시 index.html 파일을 직접 읽어서 화면에 띄웁니다.
+@app.get("/")
+def index():
+    file_path = os.path.join(BASE_DIR, "index.html")
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read(), 200, {"Content-Type": "text/html; charset=utf-8"}
+    except Exception as e:
+        return f"index.html 파일을 찾을 수 없습니다: {str(e)}", 500
