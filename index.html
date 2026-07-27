@@ -5,203 +5,371 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>본문 추출기</title>
   <style>
-  :root {
-    --bg: #f5f6f8;
-    --card: #ffffff;
-    --text: #1f2937;
-    --muted: #6b7280;
-    --line: #d8dde6;
-    --primary: #2563eb;
-    --primary-hover: #1d4ed8;
-    --danger: #dc2626;
-    --success: #15803d;
-  }
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #d8dde6;
+      --primary: #2563eb;
+      --danger: #dc2626;
+      --success: #15803d;
+    }
 
-  * { box-sizing: border-box; }
+    * { box-sizing: border-box; }
 
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    line-height: 1.5;
-  }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
 
-  .wrap {
-    width: min(980px, calc(100% - 32px));
-    margin: 32px auto;
-  }
+    .wrap {
+      width: min(980px, calc(100% - 32px));
+      margin: 32px auto;
+    }
 
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-    padding: 24px;
-    margin-bottom: 24px;
-  }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      padding: 22px;
+    }
 
-  h1 {
-    margin: 0 0 8px;
-    font-size: 26px;
-    font-weight: 700;
-    color: var(--text);
-  }
+    h1 { margin: 0 0 8px; font-size: 24px; }
 
-  p.sub {
-    margin: 0 0 20px;
-    color: var(--muted);
-    font-size: 14px;
-  }
+    .desc { margin: 0 0 20px; color: var(--muted); line-height: 1.6; }
 
-  .input-group {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-  }
+    .row { display: flex; gap: 10px; }
 
-  input[type="text"] {
-    flex: 1;
-    padding: 12px 16px;
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    font-size: 15px;
-    color: var(--text);
-    outline: none;
-    transition: border-color 0.2s;
-  }
+    input {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 13px 14px;
+      font-size: 15px;
+      outline: none;
+    }
 
-  input[type="text"]:focus {
-    border-color: var(--primary);
-  }
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .14); }
 
-  button {
-    padding: 12px 20px;
-    background: var(--primary);
-    color: #fff;
-    border: none;
-    border-radius: 10px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--primary);
+      cursor: pointer;
+      white-space: nowrap;
+    }
 
-  button:hover {
-    background: var(--primary-hover);
-  }
+    button.secondary { background: #374151; }
 
-  button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
+    button.success { background: var(--success); }
 
-  hr {
-    border: none;
-    border-top: 1px solid var(--line);
-    margin: 24px 0;
-  }
+    button.toggle-off { background: #6b7280; }
 
-  .preview-area {
-    background: #fafafa;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 20px;
-    min-height: 250px;
-    color: var(--text);
-  }
+    button:disabled { opacity: .55; cursor: wait; }
 
-  /* 스피너 */
-  .spinner {
-    width: 36px;
-    height: 36px;
-    margin: 40px auto;
-    border: 4px solid var(--line);
-    border-top: 4px solid var(--primary);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
+    .status { margin-top: 3px; min-height: 24px; color: var(--muted); }
 
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
+    .status.error { color: var(--danger); font-weight: 700; }
 
-  /* 사이드바 & 오버레이 (명작 리스트 고정) */
-  .sidebar-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.4);
-    display: none;
-    z-index: 998;
-  }
+    .result { margin-top: 5px; display: none; }
 
-  .sidebar-overlay.active,
-  .sidebar-overlay.open,
-  .sidebar-overlay.show {
-    display: block;
-  }
+    .title {
+      font-weight: 800;
+      font-size: 18px;
+      margin-top: 12px;
+      word-break: keep-all;
+    }
 
-  .sidebar {
-    position: fixed;
-    top: 0;
-    right: -360px;
-    width: 340px;
-    height: 100vh;
-    background: #fff;
-    border-left: 1px solid var(--line);
-    box-shadow: -4px 0 20px rgba(0,0,0,0.1);
-    z-index: 999;
-    transition: right 0.3s ease;
-    padding: 24px;
-    overflow-y: auto;
-  }
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 6px;
+    }
 
-  .sidebar.active,
-  .sidebar.open,
-  .sidebar.show {
-    right: 0;
-  }
+    .preview {
+      min-height: 260px;
+      max-height: 62vh;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      background: #fff;
+      line-height: 1.7;
+      white-space: normal;
+    }
 
-  .sidebar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--line);
-  }
+    .preview img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 8px 0;
+      border-radius: 8px;
+    }
 
-  .saved-item {
-    background: #f8fafc;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 14px;
-    margin-bottom: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
+    textarea {
+      width: 100%;
+      min-height: 210px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      display: none;
+    }
 
-  .saved-item:hover {
-    border-color: var(--primary);
-    background: #fff;
-  }
+    .tabs { display: flex; gap: 8px; margin-top: 5px; margin-bottom: 5; flex-wrap: wrap; }
 
-  .toolbar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-    transition: all 0.3s ease;
-  }
+    .tab {
+      background: #e5e7eb;
+      color: #111827;
+      padding: 9px 12px;
+      border-radius: 999px;
+    }
 
-  .toolbar.collapsed {
-    display: none;
-  }
-</style>
+    .tab.active { background: #111827; color: #fff; }
+
+    .notice {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    
+    /* 사이드바 오버레이 */
+    .sidebar-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(17, 24, 39, 0.4);
+      z-index: 999;
+      display: none;
+      opacity: 0;
+      backdrop-filter: blur(2px);
+      transition: opacity 0.3s ease;
+    }
+
+    .sidebar-overlay.show {
+      display: block;
+      opacity: 1;
+    }
+    
+    /* 사이드바 본체 */
+    .sidebar {
+      position: fixed;
+      top: 0; right: -320px;
+      width: 320px; 
+      height: 100%;
+      background: var(--card);
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+      z-index: 1000;
+      transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar.show {
+      right: 0;
+    }
+    
+    /* 사이드바 내부 요소 */
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--line);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .sidebar-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
+
+    .close-btn { 
+      background: none; border: none; font-size: 28px; 
+      color: var(--muted); padding: 0; width: auto; line-height: 1;
+    }
+
+    .close-btn:hover { color: var(--danger); }
+    
+    .sidebar-content { padding: 20px; overflow-y: auto; flex: 1; }
+
+    .category-group { margin-bottom: 24px; }
+
+    .category-group h3 { margin: 0 0 12px; font-size: 15px; color: var(--primary); color: rgb(0, 138, 62); }
+
+    /* 변경 후 코드: 링크를 카드 형태로 깔끔하게 분리 */
+    .category-list { list-style: none; padding: 0; margin: 0; }
+    .category-list li { margin-bottom: 8px; } /* 항목 간 간격 */
+
+    .category-list a { 
+      color: var(--text); 
+      text-decoration: none; 
+      font-size: 13.5px; 
+      display: block; 
+      line-height: 1.5; 
+      word-break: keep-all;
+      
+      /* 박스 디자인 추가 */
+      padding: 10px 14px;
+      background-color: var(--bg); /* 연한 배경색 */
+      border: 1px solid var(--line); /* 얇은 테두리 */
+      border-radius: 10px; /* 둥근 모서리 */
+      transition: all 0.2s ease; /* 부드러운 애니메이션 효과 */
+    }
+
+    /* 마우스 올렸을 때(호버) 효과 */
+    .category-list a:hover { 
+      color: var(--primary); 
+      background-color: #ffffff; 
+      border-color: var(--primary); 
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1); /* 은은한 파란 그림자 */
+      transform: translateY(-2px); /* 살짝 위로 떠오르는 효과 */
+    }
+
+    /* --- 현재 선택된 링크(활성화 상태) 스타일 --- */
+    .category-list a.active-link {
+      color: var(--primary); /* 테마 포인트 색상 (파란색 등) */
+      background-color: #ffffff; /* 배경을 밝게 */
+      font-weight: bold; /* 글씨를 굵게 */
+      border: 1px solid var(--primary); /* 테두리에 포인트 색상 */
+      border-left: 5px solid var(--primary); /* 왼쪽에 굵은 띠를 주면 확 눈에 띕니다 */
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* 은은한 그림자 */
+      transform: translateY(-2px); /* 살짝 띄워주는 효과 */
+    }
+
+    @media (max-width: 640px) {
+      .row { flex-direction: column; }
+      button { width: 100%; }
+      .wrap { width: min(100% - 20px, 980px); margin: 18px auto; }
+      .card { padding: 16px; border-radius: 14px; }
+    }
+
+    /* --- 아코디언 토글 스타일 --- */
+    .category-group h3, .sub-category h4 {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      user-select: none; /* 더블클릭 시 텍스트 블록 지정 방지 */
+    }
+    
+    /* 제목 오른쪽에 자동으로 회전하는 화살표 추가 */
+    .category-group h3::after, .sub-category h4::after {
+      content: '▼';
+      font-size: 9px;
+      margin-left: 6px;
+      color: var(--muted);
+      transition: transform 0.2s ease;
+    }
+    
+    /* collapsed(접힘) 클래스가 붙으면 화살표를 오른쪽(▶)으로 회전 */
+    .category-group.collapsed h3::after, .sub-category.collapsed h4::after {
+      transform: rotate(-90deg);
+    }
+    
+    /* 연도가 접히면 하위 분기들을 숨김 */
+    .category-group.collapsed .sub-category {
+      display: none;
+    }
+    
+    /* 분기가 접히면 하위 글 목록(ul)을 숨김 */
+    .category-group.collapsed .sub-category .category-list,
+    .sub-category.collapsed .category-list {
+      display: none;
+    }
+
+    /* ===== 바깥 전체(HTML) 스크롤 방지 & 본문 영역 내부 스크롤 최적화 ===== */
+    html, body {
+      height: 100vh;
+      height: 100dvh; /* 모바일 하단바까지 완벽히 고려한 최신 높이값 */
+      overflow: hidden !important; /* 바깥쪽 메인 스크롤바 완전 숨김 */
+    }
+
+    .wrap {
+      /* 내용이 적을 땐 작게, 꽉 차면 화면 끝까지만 커지도록 제한 */
+      max-height: calc(100vh - 64px); 
+      max-height: calc(100dvh - 64px); 
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    .card {
+      display: flex !important;
+      flex-direction: column !important;
+      max-height: 100% !important; 
+      min-height: 0 !important; /* 카드를 뚫고 나가는 것 방지 (스크롤 트리거) */
+    }
+
+    /* 자바스크립트로 결과창이 열렸을 때 레이아웃이 깨지지 않게 flex 구조로 덮어쓰기 */
+    .result[style*="block"] {
+      display: flex !important;
+      flex-direction: column !important;
+      min-height: 0 !important;
+      flex: 1 !important;
+    }
+
+    /* 본문, HTML, 텍스트가 표시되는 실제 내용 영역 */
+    .preview, textarea {
+      flex: 1 !important; /* 탭 버튼과 상단 영역을 뺀 남은 공간을 모두 차지 */
+      min-height: 0 !important;
+      max-height: none !important; /* 기존에 걸려있던 애매한 최대 높이 제한 해제 */
+      overflow-y: auto !important; /* ⭐ 여기서만 스크롤이 생기도록 설정! */
+    }
+
+    textarea {
+      resize: none !important; /* 화면에 꽉 차게 스크롤되므로 수동 조절 차단 */
+    }
+
+    /* 명작선 보기 버튼과 본문 가져오기 버튼의 가로 길이를 똑같이 맞춤 */
+    #openSidebarBtn, .row button {
+      width: 120px !important; /* 원하시는 길이에 따라 140px ~ 160px 등으로 조절해 보세요 */
+      flex-shrink: 0;
+      text-align: center;
+    }
+
+    /* ===== 1. 불필요한 탭 완벽 숨김 ===== */
+    .tabs {
+      display: none !important;
+    }
+
+    /* ===== 2. 본문(미리보기) 영역 글자 및 여백 확대 ===== */
+    .preview {
+      font-size: 17px !important; /* 기존(16px)보다 글자를 더 크게 */
+      line-height: 1.8 !important; /* 글씨가 커진 만큼 줄간격도 시원하게 */
+      padding: 24px !important; /* 안쪽 여백을 넓혀서 답답함 해소 */
+    }
+
+    /* ===== 3. 프로그램 전체 가로 폭 확장 (선택 사항) ===== */
+    .wrap {
+      /* 기존 980px 였던 가로 폭을 1200px로 확 늘려서 모니터를 넓게 씁니다 */
+      width: min(1200px, calc(100% - 32px)) !important; 
+    }
+
+    /* ===== 💡 툴바 접기/펴기 디자인 ===== */
+    .toolbar {
+      display: flex; 
+      flex-wrap: wrap; /* 화면이 좁을 때 버튼이 자연스럽게 아랫줄로 내려가도록 추가 */
+      align-items: center;
+      gap: 8px; 
+      margin-bottom: 16px;
+      transition: all 0.3s ease-in-out; /* 부드러운 애니메이션 */
+      max-height: 200px; /* 여러 줄로 내려가도 넉넉하게 다 보이도록 200px로 확장 */
+      opacity: 1; 
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .toolbar.collapsed {
+      max-height: 0; 
+      opacity: 0; 
+      margin-bottom: 0;
+    }
+  </style>
 </head>
 
 <body>
