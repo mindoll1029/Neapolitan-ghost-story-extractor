@@ -3,385 +3,255 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>본문 추출기</title>
+  <title>나폴리탄 추출기</title>
   <style>
-    :root {
-      --bg: #f5f6f8;
-      --card: #ffffff;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --line: #d8dde6;
-      --primary: #2563eb;
-      --danger: #dc2626;
-      --success: #15803d;
-    }
+  @import url('https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap');
 
-    * { box-sizing: border-box; }
+  :root {
+    /* 🕰️ 색상 팔레트: 습기 찬 어둠, 낡은 마호가니, 먼지 쌓인 양피지 */
+    --bg: #0f0a07;             /* 빛이 들지 않는 성의 깊은 어둠 */
+    --card: #1f1611;           /* 비틀어진 오래된 흑단나무 테이블 */
+    --text: #cbb9a1;           /* 바스라질 것 같은 낡은 양피지 글씨 */
+    --muted: #786656;          /* 먼지 쌓여 희미해진 글씨 */
+    --line: #3d2a1d;           /* 썩은 나무판자의 갈라진 틈새 */
+    --primary: #4a2517;        /* 말라붙은 핏자국 같은 다크 레드우드 */
+    --primary-hover: #31160c;  
+    --danger: #801d1d;
+    --success: #2d4224;
+    --glow: rgba(184, 115, 51, 0.15); /* 스산한 구릿빛 그림자 */
+  }
 
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
+  * { box-sizing: border-box; }
 
-    .wrap {
-      width: min(980px, calc(100% - 32px));
-      margin: 32px auto;
-    }
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    /* 💡 방치된 저택 내부 이미지에 시야가 좁아지는 듯한 어두운 비네팅(그라데이션) 효과 추가 */
+    background-image: 
+      radial-gradient(circle at 50% 50%, rgba(15, 10, 7, 0.75) 0%, rgba(5, 3, 2, 0.98) 80%),
+      url('https://images.unsplash.com/photo-1605806616949-1e87b487bc2a?auto=format&fit=crop&w=1920&q=80');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: 'Gowun Batang', serif;
+    line-height: 1.6;
+  }
 
-    .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
-      padding: 22px;
-    }
+  .wrap {
+    width: min(980px, calc(100% - 32px));
+    margin: 32px auto;
+  }
 
-    h1 { margin: 0 0 8px; font-size: 24px; }
+  /* 📜 메인 카드 (오래된 나무 액자 느낌) */
+  .card {
+    background: var(--card);
+    border: 2px solid var(--line);
+    border-radius: 8px; /* 엔틱한 느낌을 위해 둥글기를 조금 줄임 */
+    box-shadow: 
+      inset 0 0 40px rgba(0,0,0,0.8), /* 안쪽으로 움푹 파인 먼지 쌓인 효과 */
+      0 20px 40px rgba(0, 0, 0, 0.9);
+    padding: 24px;
+    margin-bottom: 24px;
+    position: relative;
+  }
 
-    .desc { margin: 0 0 20px; color: var(--muted); line-height: 1.6; }
+  /* 액자 네 모서리의 장식용 못 느낌 */
+  .card::before, .card::after {
+    content: '';
+    position: absolute;
+    width: 6px; height: 6px;
+    background: #140d09;
+    border-radius: 50%;
+  }
+  .card::before { top: 8px; left: 8px; box-shadow: calc(100% - 22px) 0 0 #140d09; }
+  .card::after { bottom: 8px; right: 8px; box-shadow: calc(-100% + 22px) 0 0 #140d09; }
 
-    .row { display: flex; gap: 10px; }
+  h1 {
+    margin: 0 0 8px;
+    font-size: 26px;
+    font-weight: 700;
+    color: #9c7b5a; /* 녹슨 놋쇠 색상 */
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    text-align: center;
+    letter-spacing: 2px;
+  }
 
-    input {
-      flex: 1;
-      min-width: 0;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 13px 14px;
-      font-size: 15px;
-      outline: none;
-    }
+  p.sub {
+    margin: 0 0 20px;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+  }
 
-    input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .14); }
+  .input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
 
-    button {
-      border: 0;
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-size: 15px;
-      font-weight: 700;
-      color: #fff;
-      background: var(--primary);
-      cursor: pointer;
-      white-space: nowrap;
-    }
+  /* 입력창 (그을린 유리창 느낌) */
+  input[type="text"] {
+    flex: 1;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-family: 'Gowun Batang', serif;
+    font-size: 15px;
+    color: var(--text);
+    outline: none;
+    transition: all 0.3s ease;
+  }
 
-    button.secondary { background: #374151; }
+  input[type="text"]:focus {
+    border-color: #7a5035;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 0 8px var(--glow);
+  }
 
-    button.success { background: var(--success); }
+  /* 🚪 버튼 (무거운 나무 문 느낌) */
+  button {
+    padding: 12px 20px;
+    background: linear-gradient(180deg, #4a2517 0%, #291108 100%);
+    color: #cbb9a1;
+    border: 1px solid #1c0b05;
+    border-radius: 6px;
+    font-family: 'Gowun Batang', serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.9);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 6px rgba(0,0,0,0.6);
+    transition: all 0.2s ease;
+  }
 
-    button.toggle-off { background: #6b7280; }
+  button:hover {
+    background: linear-gradient(180deg, #3d1c10 0%, #1c0a04 100%);
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 3px rgba(0,0,0,0.8);
+  }
 
-    button:disabled { opacity: .55; cursor: wait; }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
 
-    .status { margin-top: 3px; min-height: 24px; color: var(--muted); }
+  hr {
+    border: none;
+    border-top: 1px dashed var(--line);
+    margin: 24px 0;
+  }
 
-    .status.error { color: var(--danger); font-weight: 700; }
+  .preview-area {
+    background: rgba(10, 6, 4, 0.6);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 20px;
+    min-height: 250px;
+    color: #a89a8a;
+    box-shadow: inset 0 5px 15px rgba(0,0,0,0.5);
+  }
 
-    .result { margin-top: 5px; display: none; }
+  /* 🕯️ 낡은 촛불 로딩 스피너 (도깨비불 ➔ 음산한 촛불로 변경) */
+  .spinner {
+    width: 30px;
+    height: 30px;
+    margin: 40px auto;
+    background: #e6aa4c; /* 누런 촛불 색상 */
+    border-radius: 0 50% 50% 50%;
+    transform: rotate(45deg);
+    box-shadow: 
+      0 0 15px rgba(230, 170, 76, 0.6),
+      0 0 30px rgba(181, 98, 23, 0.4),
+      0 0 45px rgba(107, 38, 5, 0.2);
+    animation: 
+      candle-flicker 0.15s infinite alternate;
+  }
 
-    .title {
-      font-weight: 800;
-      font-size: 18px;
-      margin-top: 12px;
-      word-break: keep-all;
-    }
+  /* 바람에 흔들리는 촛불 효과 */
+  @keyframes candle-flicker {
+    0% { transform: rotate(43deg) scale(0.95); opacity: 0.8; }
+    100% { transform: rotate(47deg) scale(1.05); opacity: 1; }
+  }
 
-    .meta {
-      color: var(--muted);
-      font-size: 13px;
-      margin-top: 6px;
-    }
+  /* 📜 사이드바 (서재의 비밀 책장 느낌) */
+  .sidebar-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.85); /* 짙은 어둠 */
+    display: none;
+    z-index: 998;
+  }
 
-    .preview {
-      min-height: 260px;
-      max-height: 62vh;
-      overflow: auto;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 18px;
-      background: #fff;
-      line-height: 1.7;
-      white-space: normal;
-    }
+  .sidebar-overlay.active, .sidebar-overlay.open, .sidebar-overlay.show { display: block; }
 
-    .preview img {
-      max-width: 100%;
-      height: auto;
-      display: block;
-      margin: 8px 0;
-      border-radius: 8px;
-    }
+  .sidebar {
+    position: fixed;
+    top: 0; right: -360px;
+    width: 340px; height: 100vh;
+    background: #140e0a;
+    border-left: 2px solid var(--line);
+    box-shadow: -10px 0 30px rgba(0,0,0,1);
+    z-index: 999;
+    transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 24px;
+    overflow-y: auto;
+    color: var(--text);
+  }
 
-    textarea {
-      width: 100%;
-      min-height: 210px;
-      resize: vertical;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 14px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 13px;
-      line-height: 1.6;
-      display: none;
-    }
+  .sidebar.active, .sidebar.open, .sidebar.show { right: 0; }
 
-    .tabs { display: flex; gap: 8px; margin-top: 5px; margin-bottom: 5; flex-wrap: wrap; }
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--line);
+  }
 
-    .tab {
-      background: #e5e7eb;
-      color: #111827;
-      padding: 9px 12px;
-      border-radius: 999px;
-    }
+  /* 저장된 명작 리스트 (낡은 나무 팻말 느낌) */
+  .saved-item {
+    background: #1c130d;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 14px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+  }
 
-    .tab.active { background: #111827; color: #fff; }
+  .saved-item:hover {
+    border-color: #61442f;
+    background: #241811;
+    transform: translateX(-2px);
+  }
 
-    .notice {
-      margin-top: 16px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.6;
-    }
-    
-    /* 사이드바 오버레이 */
-    .sidebar-overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(17, 24, 39, 0.4);
-      z-index: 999;
-      display: none;
-      opacity: 0;
-      backdrop-filter: blur(2px);
-      transition: opacity 0.3s ease;
-    }
+  /* 툴바 */
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    transition: all 0.3s ease;
+  }
 
-    .sidebar-overlay.show {
-      display: block;
-      opacity: 1;
-    }
-    
-    /* 사이드바 본체 */
-    .sidebar {
-      position: fixed;
-      top: 0; right: -320px;
-      width: 320px; 
-      height: 100%;
-      background: var(--card);
-      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
-      z-index: 1000;
-      transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      display: flex;
-      flex-direction: column;
-    }
-
-    .sidebar.show {
-      right: 0;
-    }
-    
-    /* 사이드바 내부 요소 */
-    .sidebar-header {
-      padding: 20px;
-      border-bottom: 1px solid var(--line);
-      display: flex; justify-content: space-between; align-items: center;
-    }
-
-    .sidebar-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
-
-    .close-btn { 
-      background: none; border: none; font-size: 28px; 
-      color: var(--muted); padding: 0; width: auto; line-height: 1;
-    }
-
-    .close-btn:hover { color: var(--danger); }
-    
-    .sidebar-content { padding: 20px; overflow-y: auto; flex: 1; }
-
-    .category-group { margin-bottom: 24px; }
-
-    .category-group h3 { margin: 0 0 12px; font-size: 15px; color: var(--primary); color: rgb(0, 138, 62); }
-
-    /* 변경 후 코드: 링크를 카드 형태로 깔끔하게 분리 */
-    .category-list { list-style: none; padding: 0; margin: 0; }
-    .category-list li { margin-bottom: 8px; } /* 항목 간 간격 */
-
-    .category-list a { 
-      color: var(--text); 
-      text-decoration: none; 
-      font-size: 13.5px; 
-      display: block; 
-      line-height: 1.5; 
-      word-break: keep-all;
-      
-      /* 박스 디자인 추가 */
-      padding: 10px 14px;
-      background-color: var(--bg); /* 연한 배경색 */
-      border: 1px solid var(--line); /* 얇은 테두리 */
-      border-radius: 10px; /* 둥근 모서리 */
-      transition: all 0.2s ease; /* 부드러운 애니메이션 효과 */
-    }
-
-    /* 마우스 올렸을 때(호버) 효과 */
-    .category-list a:hover { 
-      color: var(--primary); 
-      background-color: #ffffff; 
-      border-color: var(--primary); 
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1); /* 은은한 파란 그림자 */
-      transform: translateY(-2px); /* 살짝 위로 떠오르는 효과 */
-    }
-
-    /* --- 현재 선택된 링크(활성화 상태) 스타일 --- */
-    .category-list a.active-link {
-      color: var(--primary); /* 테마 포인트 색상 (파란색 등) */
-      background-color: #ffffff; /* 배경을 밝게 */
-      font-weight: bold; /* 글씨를 굵게 */
-      border: 1px solid var(--primary); /* 테두리에 포인트 색상 */
-      border-left: 5px solid var(--primary); /* 왼쪽에 굵은 띠를 주면 확 눈에 띕니다 */
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* 은은한 그림자 */
-      transform: translateY(-2px); /* 살짝 띄워주는 효과 */
-    }
-
-    @media (max-width: 640px) {
-      .row { flex-direction: column; }
-      button { width: 100%; }
-      .wrap { width: min(100% - 20px, 980px); margin: 18px auto; }
-      .card { padding: 16px; border-radius: 14px; }
-    }
-
-    /* --- 아코디언 토글 스타일 --- */
-    .category-group h3, .sub-category h4 {
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      user-select: none; /* 더블클릭 시 텍스트 블록 지정 방지 */
-    }
-    
-    /* 제목 오른쪽에 자동으로 회전하는 화살표 추가 */
-    .category-group h3::after, .sub-category h4::after {
-      content: '▼';
-      font-size: 9px;
-      margin-left: 6px;
-      color: var(--muted);
-      transition: transform 0.2s ease;
-    }
-    
-    /* collapsed(접힘) 클래스가 붙으면 화살표를 오른쪽(▶)으로 회전 */
-    .category-group.collapsed h3::after, .sub-category.collapsed h4::after {
-      transform: rotate(-90deg);
-    }
-    
-    /* 연도가 접히면 하위 분기들을 숨김 */
-    .category-group.collapsed .sub-category {
-      display: none;
-    }
-    
-    /* 분기가 접히면 하위 글 목록(ul)을 숨김 */
-    .category-group.collapsed .sub-category .category-list,
-    .sub-category.collapsed .category-list {
-      display: none;
-    }
-
-    /* ===== 바깥 전체(HTML) 스크롤 방지 & 본문 영역 내부 스크롤 최적화 ===== */
-    html, body {
-      height: 100vh;
-      height: 100dvh; /* 모바일 하단바까지 완벽히 고려한 최신 높이값 */
-      overflow: hidden !important; /* 바깥쪽 메인 스크롤바 완전 숨김 */
-    }
-
-    .wrap {
-      /* 내용이 적을 땐 작게, 꽉 차면 화면 끝까지만 커지도록 제한 */
-      max-height: calc(100vh - 64px); 
-      max-height: calc(100dvh - 64px); 
-      display: flex !important;
-      flex-direction: column !important;
-    }
-
-    .card {
-      display: flex !important;
-      flex-direction: column !important;
-      max-height: 100% !important; 
-      min-height: 0 !important; /* 카드를 뚫고 나가는 것 방지 (스크롤 트리거) */
-    }
-
-    /* 자바스크립트로 결과창이 열렸을 때 레이아웃이 깨지지 않게 flex 구조로 덮어쓰기 */
-    .result[style*="block"] {
-      display: flex !important;
-      flex-direction: column !important;
-      min-height: 0 !important;
-      flex: 1 !important;
-    }
-
-    /* 본문, HTML, 텍스트가 표시되는 실제 내용 영역 */
-    .preview, textarea {
-      flex: 1 !important; /* 탭 버튼과 상단 영역을 뺀 남은 공간을 모두 차지 */
-      min-height: 0 !important;
-      max-height: none !important; /* 기존에 걸려있던 애매한 최대 높이 제한 해제 */
-      overflow-y: auto !important; /* ⭐ 여기서만 스크롤이 생기도록 설정! */
-    }
-
-    textarea {
-      resize: none !important; /* 화면에 꽉 차게 스크롤되므로 수동 조절 차단 */
-    }
-
-    /* 명작선 보기 버튼과 본문 가져오기 버튼의 가로 길이를 똑같이 맞춤 */
-    #openSidebarBtn, .row button {
-      width: 120px !important; /* 원하시는 길이에 따라 140px ~ 160px 등으로 조절해 보세요 */
-      flex-shrink: 0;
-      text-align: center;
-    }
-
-    /* ===== 1. 불필요한 탭 완벽 숨김 ===== */
-    .tabs {
-      display: none !important;
-    }
-
-    /* ===== 2. 본문(미리보기) 영역 글자 및 여백 확대 ===== */
-    .preview {
-      font-size: 17px !important; /* 기존(16px)보다 글자를 더 크게 */
-      line-height: 1.8 !important; /* 글씨가 커진 만큼 줄간격도 시원하게 */
-      padding: 24px !important; /* 안쪽 여백을 넓혀서 답답함 해소 */
-    }
-
-    /* ===== 3. 프로그램 전체 가로 폭 확장 (선택 사항) ===== */
-    .wrap {
-      /* 기존 980px 였던 가로 폭을 1200px로 확 늘려서 모니터를 넓게 씁니다 */
-      width: min(1200px, calc(100% - 32px)) !important; 
-    }
-
-    /* ===== 💡 툴바 접기/펴기 디자인 ===== */
-    .toolbar {
-      display: flex; 
-      flex-wrap: wrap; /* 화면이 좁을 때 버튼이 자연스럽게 아랫줄로 내려가도록 추가 */
-      align-items: center;
-      gap: 8px; 
-      margin-bottom: 16px;
-      transition: all 0.3s ease-in-out; /* 부드러운 애니메이션 */
-      max-height: 200px; /* 여러 줄로 내려가도 넉넉하게 다 보이도록 200px로 확장 */
-      opacity: 1; 
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-
-    .toolbar.collapsed {
-      max-height: 0; 
-      opacity: 0; 
-      margin-bottom: 0;
-    }
-  </style>
+  .toolbar.collapsed { display: none; }
+</style>
 </head>
 
 <body>
   <main class="wrap">
     <section class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <h1 style="margin: 0;">본문 추출기</h1>
+        <h1 style="margin: 0;">나폴리탄 추출기</h1>
         <button id="openSidebarBtn" class="secondary">명작선 보기 📚</button>
       </div>
       <div class="row">
         <input id="urlInput" placeholder="주소 입력" autocomplete="off" />
-        <button id="extractBtn">본문 가져오기</button>
+        <button id="extractBtn">가져오기</button>
       </div>
       <div id="status" class="status"></div>
 
@@ -1512,8 +1382,8 @@
       imageToggleBtn.classList.toggle('success', state.imagesEnabled);
       imageToggleBtn.classList.toggle('toggle-off', !state.imagesEnabled);
       metaEl.textContent = state.imageCount > 0
-        ? `본문 사진 ${state.imageCount}개 · 현재 ${state.imagesEnabled ? '표시 중' : '숨김'}`
-        : '본문 사진 없음';
+        ? `나폴리탄 사진 ${state.imageCount}개 · 현재 ${state.imagesEnabled ? '표시 중' : '숨김'}`
+        : '나폴리탄 사진 없음';
       showMode(state.mode);
     }
 
@@ -1530,7 +1400,7 @@
     async function extract() {
       const url = urlInput.value.trim();
       extractBtn.disabled = true;
-      setStatus('본문을 가져오는 중입니다...');
+      setStatus('나폴리탄을 가져오는 중입니다...');
       resultEl.style.display = 'none';
 
       try {
@@ -1540,7 +1410,7 @@
           body: JSON.stringify({ url })
         });
         const data = await response.json();
-        if (!data.ok) throw new Error(data.error || '본문 추출에 실패했습니다.');
+        if (!data.ok) throw new Error(data.error || '나폴리탄 추출에 실패했습니다.');
 
         state.htmlWithImages = data.html || '';
         state.htmlNoImages = data.html_no_images || '';
@@ -1583,7 +1453,7 @@
           document.execCommand('copy');
           selection.removeAllRanges();
         }
-        setStatus(state.imagesEnabled ? '스타일과 사진이 포함된 본문을 복사했습니다.' : '사진 없이 스타일 포함 본문을 복사했습니다.');
+        setStatus(state.imagesEnabled ? '스타일과 사진이 포함된 나폴리탄을 복사했습니다.' : '사진 없이 스타일 포함 나폴리탄을 복사했습니다.');
       } catch (error) {
         setStatus('브라우저가 스타일 복사를 막았습니다. 미리보기 영역을 직접 드래그해서 복사하세요.', true);
       }
