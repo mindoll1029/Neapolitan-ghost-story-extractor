@@ -86,16 +86,16 @@ def validate_url(raw_url: str) -> str:
 
 
 def fetch_html(url: str) -> str:
+    # 💡 디시인사이드 방화벽을 통과하기 위한 위장 신분증(Headers) 생성
     headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0 Safari/537.36"
-        ),
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Referer": "https://gall.dcinside.com/",
+        "Referer": "https://gall.dcinside.com/"
     }
-    response = requests.get(url, headers=headers, timeout=15)
+
+    # 요청을 보낼 때 headers를 같이 보냅니다.
+    response = requests.get(url, headers=headers, timeout=10)
     response.raise_for_status()
 
     # requests가 인코딩을 못 잡으면 apparent_encoding을 사용한다.
