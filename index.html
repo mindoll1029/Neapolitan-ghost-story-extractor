@@ -244,8 +244,6 @@
     }
 
     @media (max-width: 640px) {
-      .row { flex-direction: column; }
-      button { width: 100%; }
       .wrap { width: min(100% - 20px, 980px); margin: 18px auto; }
       .card { padding: 16px; border-radius: 14px; }
     }
@@ -365,9 +363,72 @@
     }
 
     .toolbar.collapsed {
-      max-height: 0; 
-      opacity: 0; 
+      max-height: 0;
+      opacity: 0;
       margin-bottom: 0;
+    }
+
+    /* ===== 스크롤 막대가 항상 보이도록 처리 (모바일에서 스크롤 가능함을 알 수 있게) ===== */
+    .preview,
+    textarea,
+    .sidebar-content {
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin; /* Firefox */
+      scrollbar-color: #9aa3b2 #e5e7eb; /* Firefox: thumb track */
+    }
+
+    .preview::-webkit-scrollbar,
+    textarea::-webkit-scrollbar,
+    .sidebar-content::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .preview::-webkit-scrollbar-track,
+    textarea::-webkit-scrollbar-track,
+    .sidebar-content::-webkit-scrollbar-track {
+      background: #e5e7eb;
+      border-radius: 8px;
+    }
+
+    .preview::-webkit-scrollbar-thumb,
+    textarea::-webkit-scrollbar-thumb,
+    .sidebar-content::-webkit-scrollbar-thumb {
+      background-color: #9aa3b2;
+      border-radius: 8px;
+    }
+
+    /* ===== 전체화면(본문 확대) 기능 ===== */
+    #fullscreenBtn { padding: 6px 10px; font-size: 12px; width: auto; }
+
+    #result.fullscreen-mode {
+      position: fixed !important;
+      inset: 0 !important;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      max-height: 100vh !important;
+      max-height: 100dvh !important;
+      margin: 0 !important;
+      z-index: 2000;
+      background: var(--card);
+      padding: 16px;
+      border-radius: 0;
+      box-shadow: none;
+      overflow: hidden;
+    }
+
+    #result.fullscreen-mode .preview,
+    #result.fullscreen-mode textarea {
+      flex: 1 !important;
+    }
+
+    @media (max-width: 640px) {
+      .preview::-webkit-scrollbar,
+      textarea::-webkit-scrollbar,
+      .sidebar-content::-webkit-scrollbar {
+        width: 6px;
+      }
     }
   </style>
 </head>
@@ -388,8 +449,9 @@
       <section id="result" class="result">
         <div id="title" class="title"></div>
         <div id="meta" class="meta"></div>
-        <div style="text-align: right; margin-bottom: 8px;">
+        <div style="text-align: right; margin-bottom: 8px; display: flex; justify-content: flex-end; gap: 6px;">
           <button id="toggleToolbarBtn" class="secondary" style="padding: 6px 10px; font-size: 12px; width: auto;">기능 펼치기 ⚙️</button>
+          <button id="fullscreenBtn" class="secondary">전체화면 ⛶</button>
         </div>
 
         <div id="toolbarContainer" class="toolbar collapsed">
@@ -1722,6 +1784,23 @@
           this.textContent = '기능 펼치기 ⚙️';
         } else {
           this.textContent = '기능 숨기기 ⚙️';
+        }
+      });
+    }
+
+    // ===== 본문(나폴리탄) 전체화면 토글 =====
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+    if (fullscreenBtn && resultEl) {
+      fullscreenBtn.addEventListener('click', function() {
+        const isFullscreen = resultEl.classList.toggle('fullscreen-mode');
+        this.textContent = isFullscreen ? '전체화면 종료 ✕' : '전체화면 ⛶';
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && resultEl.classList.contains('fullscreen-mode')) {
+          resultEl.classList.remove('fullscreen-mode');
+          fullscreenBtn.textContent = '전체화면 ⛶';
         }
       });
     }
