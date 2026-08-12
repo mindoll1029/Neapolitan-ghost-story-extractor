@@ -152,15 +152,15 @@
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(17, 24, 39, 0.4);
       z-index: 999;
-      display: none;
       opacity: 0;
+      pointer-events: none;
       backdrop-filter: blur(2px);
       transition: opacity 0.3s ease;
     }
 
     .sidebar-overlay.show {
-      display: block;
       opacity: 1;
+      pointer-events: auto;
     }
     
     /* 사이드바 본체 */
@@ -1687,17 +1687,11 @@
 
     function toggleSidebar(show) {
       if (show) {
-        sidebarOverlay.style.display = 'block';
-        // 브라우저 렌더링을 위해 아주 잠깐 대기 후 애니메이션 클래스 추가
-        requestAnimationFrame(() => {
-          sidebar.classList.add('show');
-          sidebarOverlay.classList.add('show');
-        });
+        sidebar.classList.add('show');
+        sidebarOverlay.classList.add('show');
       } else {
         sidebar.classList.remove('show');
         sidebarOverlay.classList.remove('show');
-        // 애니메이션이 끝난 후 display: none 처리
-        setTimeout(() => { sidebarOverlay.style.display = 'none'; }, 300);
       }
     }
 
