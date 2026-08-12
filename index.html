@@ -337,7 +337,8 @@
 
     /* ===== 2. 나폴리탄(미리보기) 영역 글자 및 여백 확대 ===== */
     .preview {
-      font-size: 17px !important; /* 기존(16px)보다 글자를 더 크게 */
+      --preview-zoom: 1;
+      font-size: calc(17px * var(--preview-zoom)) !important; /* 기존(16px)보다 글자를 더 크게, 확대 버튼으로 배율 조절 */
       line-height: 1.8 !important; /* 글씨가 커진 만큼 줄간격도 시원하게 */
       padding: 24px !important; /* 안쪽 여백을 넓혀서 답답함 해소 */
     }
@@ -372,7 +373,6 @@
     .preview,
     textarea,
     .sidebar-content {
-      -webkit-overflow-scrolling: touch;
       scrollbar-width: thin; /* Firefox */
       scrollbar-color: #9aa3b2 #e5e7eb; /* Firefox: thumb track */
     }
@@ -397,8 +397,8 @@
       border-radius: 8px;
     }
 
-    /* ===== 전체화면(본문 확대) 기능 ===== */
-    #fullscreenBtn { padding: 6px 10px; font-size: 12px; width: auto; }
+    /* ===== 전체화면 & 글자 확대/축소 기능 ===== */
+    #fullscreenBtn, #zoomInBtn, #zoomOutBtn { padding: 6px 10px; font-size: 12px; width: auto; }
 
     #result.fullscreen-mode {
       position: fixed !important;
@@ -449,8 +449,10 @@
       <section id="result" class="result">
         <div id="title" class="title"></div>
         <div id="meta" class="meta"></div>
-        <div style="text-align: right; margin-bottom: 8px; display: flex; justify-content: flex-end; gap: 6px;">
+        <div style="text-align: right; margin-bottom: 8px; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px;">
           <button id="toggleToolbarBtn" class="secondary" style="padding: 6px 10px; font-size: 12px; width: auto;">기능 펼치기 ⚙️</button>
+          <button id="zoomOutBtn" class="secondary">축소 −</button>
+          <button id="zoomInBtn" class="secondary">확대 +</button>
           <button id="fullscreenBtn" class="secondary">전체화면 ⛶</button>
         </div>
 
@@ -1785,6 +1787,32 @@
         } else {
           this.textContent = '기능 숨기기 ⚙️';
         }
+      });
+    }
+
+    // ===== 본문(나폴리탄) 글자 확대/축소 =====
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const ZOOM_MIN = 0.8;
+    const ZOOM_MAX = 2;
+    const ZOOM_STEP = 0.1;
+    let previewZoom = 1;
+
+    function applyPreviewZoom() {
+      previewEl.style.setProperty('--preview-zoom', previewZoom.toFixed(2));
+    }
+
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener('click', () => {
+        previewZoom = Math.min(ZOOM_MAX, +(previewZoom + ZOOM_STEP).toFixed(2));
+        applyPreviewZoom();
+      });
+    }
+
+    if (zoomOutBtn) {
+      zoomOutBtn.addEventListener('click', () => {
+        previewZoom = Math.max(ZOOM_MIN, +(previewZoom - ZOOM_STEP).toFixed(2));
+        applyPreviewZoom();
       });
     }
 
