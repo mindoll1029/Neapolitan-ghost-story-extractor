@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import re
 from copy import copy
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
@@ -91,11 +91,31 @@ def fetch_html(url: str) -> str:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Referer": "https://gall.dcinside.com/"
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+        "Referer": "https://gall.dcinside.com/",
     }
 
-    # 요청을 보낼 때 headers를 같이 보냅니다.
-    response = requests.get(url, headers=headers, timeout=10)
+    # Vercel 같은 서버 환경(클라우드 IP)에서 접속하면 디시인사이드가 세션 쿠키 없는
+    # 요청을 봇으로 의심해 차단하는 경우가 있어, 갤러리 목록을 먼저 방문해 정상 쿠키를
+    # 받아온 뒤 같은 세션으로 게시글에 접근한다(실제 브라우저의 이동 경로를 모방).
+    session = requests.Session()
+    session.headers.update(headers)
+
+    gallery_id = parse_qs(urlparse(url).query).get("id", [None])[0]
+    if gallery_id:
+        list_url = f"https://gall.dcinside.com/mgallery/board/lists/?id={gallery_id}"
+        try:
+            session.get(list_url, timeout=10)
+        except requests.RequestException:
+            pass  # 목록 방문이 실패해도 본문 요청은 계속 시도한다.
+
+    response = session.get(url, timeout=10)
     response.raise_for_status()
 
     # requests가 인코딩을 못 잡으면 apparent_encoding을 사용한다.
