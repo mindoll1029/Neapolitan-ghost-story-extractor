@@ -262,11 +262,10 @@ def clean_title_text(title: str) -> str:
     return title
 
 
-def extract_post_body(url: str) -> dict[str, str | int]:
-    html = fetch_html(url)
+def parse_post_html(html: str, base_url: str) -> dict[str, str | int]:
     soup = BeautifulSoup(html, "html.parser")
     body_node = find_body_node(soup)
-    clean_body_node(body_node, url)
+    clean_body_node(body_node, base_url)
 
     title_node = soup.select_one("span.title_subject, h3.title, .title_subject")
     if title_node:
@@ -298,10 +297,36 @@ def extract_post_body(url: str) -> dict[str, str | int]:
         "image_count": image_count,
     }
 
+
+def extract_post_body(url: str) -> dict[str, str | int]:
+    html = fetch_html(url)
+    return parse_post_html(html, url)
+
+
+DEFAULT_PASTE_BASE_URL = "https://gall.dcinside.com/"
+
+
 @app.post("/api/extract")
 def api_extract():
     try:
         payload = request.get_json(force=True) or {}
+        pasted_html = (payload.get("html") or "").strip()
+
+        if pasted_html:
+            # 서버에서 직접 접속이 막힌 경우, 사용자가 브라우저에서 연 페이지의
+            # 소스(Ctrl+U)를 붙여넣으면 같은 파싱 로직으로 추출한다.
+            raw_url = (payload.get("url") or "").strip()
+            base_url = raw_url if urlparse(raw_url).scheme in {"http", "https"} else DEFAULT_PASTE_BASE_URL
+            try:
+                data = parse_post_html(pasted_html, base_url)
+            except ValueError:
+                raise ValueError(
+                    "붙여넣은 소스에서 본문 영역을 찾지 못했습니다. "
+                    "게시글 페이지에서 마우스 우클릭 → 페이지 소스 보기(Ctrl+U)로 연 뒤, "
+                    "전체 내용을 그대로 복사해 붙여넣었는지 확인해주세요."
+                )
+            return jsonify({"ok": True, **data})
+
         url = validate_url(payload.get("url", ""))
         data = extract_post_body(url)
         return jsonify({"ok": True, **data})

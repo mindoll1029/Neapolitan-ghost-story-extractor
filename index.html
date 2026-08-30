@@ -446,6 +446,17 @@
       </div>
       <div id="status" class="status"></div>
 
+      <div id="pasteFallback" style="display: none; margin-top: 10px;">
+        <p class="notice" style="margin-top: 0;">
+          자동으로 가져오지 못했다면, 게시글 페이지에서 <b>마우스 우클릭 → 페이지 소스 보기</b>(단축키 Ctrl+U)를 열어
+          전체 내용을 복사한 뒤 아래에 붙여넣어 주세요.
+        </p>
+        <textarea id="pasteHtmlBox" placeholder="여기에 페이지 소스(HTML)를 붙여넣으세요" style="display: block; min-height: 160px;"></textarea>
+        <div class="row" style="margin-top: 8px;">
+          <button id="pasteExtractBtn">붙여넣은 소스로 가져오기</button>
+        </div>
+      </div>
+
       <section id="result" class="result">
         <div id="title" class="title"></div>
         <div id="meta" class="meta"></div>
@@ -1548,6 +1559,9 @@
     const previewTab = document.getElementById('previewTab');
     const htmlTab = document.getElementById('htmlTab');
     const textTab = document.getElementById('textTab');
+    const pasteFallback = document.getElementById('pasteFallback');
+    const pasteHtmlBox = document.getElementById('pasteHtmlBox');
+    const pasteExtractBtn = document.getElementById('pasteExtractBtn');
 
     const state = {
       htmlWithImages: '',
@@ -1591,9 +1605,9 @@
       textTab.classList.toggle('active', mode === 'text');
     }
 
-    async function extract() {
-      const url = urlInput.value.trim();
+    async function runExtract(payload, { isPaste } = {}) {
       extractBtn.disabled = true;
+      pasteExtractBtn.disabled = true;
       setStatus('나폴리탄을 가져오는 중입니다...');
       resultEl.style.display = 'none';
 
@@ -1601,7 +1615,7 @@
         const response = await fetch('/api/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url })
+          body: JSON.stringify(payload)
         });
         const data = await response.json();
         if (!data.ok) throw new Error(data.error || '나폴리탄 추출에 실패했습니다.');
@@ -1617,15 +1631,35 @@
         resultEl.style.display = 'block';
         renderCurrentBody();
         setStatus('');
+        pasteFallback.style.display = 'none';
         previewEl.scrollTop = 0;
         htmlBox.scrollTop = 0;
         textBox.scrollTop = 0;
         window.scrollTo({ top: 0, behavior: 'auto' });
       } catch (error) {
         setStatus(error.message, true);
+        if (!isPaste) {
+          pasteFallback.style.display = 'block';
+        }
       } finally {
         extractBtn.disabled = false;
+        pasteExtractBtn.disabled = false;
       }
+    }
+
+    function extract() {
+      const url = urlInput.value.trim();
+      return runExtract({ url });
+    }
+
+    function pasteExtract() {
+      const html = pasteHtmlBox.value;
+      if (!html.trim()) {
+        setStatus('붙여넣은 소스가 비어 있습니다.', true);
+        return;
+      }
+      const url = urlInput.value.trim();
+      return runExtract({ url, html }, { isPaste: true });
     }
 
     async function copyRich() {
@@ -1666,6 +1700,7 @@
     }
 
     extractBtn.addEventListener('click', extract);
+    pasteExtractBtn.addEventListener('click', pasteExtract);
     urlInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && !event.isComposing) extract();
     });
