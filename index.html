@@ -16,6 +16,17 @@
       --success: #15803d;
     }
 
+    :root[data-theme="dark"] {
+      --bg: #15171c;
+      --card: #1e2128;
+      --text: #e5e7eb;
+      --muted: #9aa3b2;
+      --line: #333844;
+      --primary: #3b82f6;
+      --danger: #f87171;
+      --success: #34d399;
+    }
+
     * { box-sizing: border-box; }
 
     body {
@@ -23,6 +34,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      transition: background 0.2s ease, color 0.2s ease;
     }
 
     .wrap {
@@ -430,6 +442,25 @@
         width: 6px;
       }
     }
+
+    /* ===== 다크 모드 보정 (하드코딩된 색상 오버라이드) ===== */
+    :root[data-theme="dark"] .preview { background: var(--card); }
+
+    :root[data-theme="dark"] .tab { background: #2a2f38; color: var(--text); }
+    :root[data-theme="dark"] .tab.active { background: var(--text); color: #111827; }
+
+    :root[data-theme="dark"] .category-list a:hover,
+    :root[data-theme="dark"] .category-list a.active-link {
+      background-color: #262b33;
+    }
+
+    :root[data-theme="dark"] .sidebar-overlay { background: rgba(0, 0, 0, 0.6); }
+
+    :root[data-theme="dark"] .preview::-webkit-scrollbar-track,
+    :root[data-theme="dark"] textarea::-webkit-scrollbar-track,
+    :root[data-theme="dark"] .sidebar-content::-webkit-scrollbar-track {
+      background: #2a2f38;
+    }
   </style>
 </head>
 
@@ -471,6 +502,7 @@
           <button id="copyRichBtn">스타일 포함 복사</button>
           <button id="copyTextBtn" class="secondary">텍스트만 복사</button>
           <button id="imageToggleBtn" type="button">사진 ON</button>
+          <button id="themeToggleBtn" type="button" class="secondary">🌙 다크 모드</button>
         </div>
         
         <div class="tabs">
@@ -1816,6 +1848,29 @@
         } else {
           this.textContent = '기능 숨기기 ⚙️';
         }
+      });
+    }
+
+    // ===== 테마(라이트/다크 모드) 전환 =====
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const THEME_STORAGE_KEY = 'napolitan-theme';
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      if (themeToggleBtn) {
+        themeToggleBtn.textContent = theme === 'dark' ? '☀️ 라이트 모드' : '🌙 다크 모드';
+      }
+    }
+
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY)
+      || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    applyTheme(savedTheme);
+
+    if (themeToggleBtn) {
+      themeToggleBtn.addEventListener('click', () => {
+        const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        localStorage.setItem(THEME_STORAGE_KEY, next);
+        applyTheme(next);
       });
     }
 
