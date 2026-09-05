@@ -1,6 +1,7 @@
 Flask
 flask-cors
 requests
+urllib3>=2.2,<3
 beautifulsoup4
 bleach
 tinycss2

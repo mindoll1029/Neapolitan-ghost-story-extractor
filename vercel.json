@@ -1,8 +1,19 @@
 {
-  "rewrites": [
+  "functions": {
+    "api/app.py": { "maxDuration": 30 }
+  },
+  "routes": [
     {
-      "source": "/api/extract",
-      "destination": "/api/app"
+      "src": "^/$",
+      "dest": "/index.html"
+    },
+    {
+      "src": "^/api/extract$",
+      "dest": "/api/app"
+    },
+    {
+      "src": "/.*",
+      "status": 404
     }
   ]
 }
