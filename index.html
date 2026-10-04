@@ -362,6 +362,25 @@
     /* ===== 전체화면 & 글자 확대/축소 ===== */
     #fullscreenBtn, #zoomInBtn, #zoomOutBtn { padding: 6px 10px; font-size: 12px; width: auto; }
 
+    /* ===== 본문 위치 이동 (좌측/가운데/우측) =====
+       본문 안의 정렬·글꼴·색 등 원문 스타일은 건드리지 않고,
+       본문 덩어리를 내용 폭만큼 줄인 뒤 그 덩어리 자체를 좌/중/우로 옮긴다.
+       data-align이 없으면 원래처럼 전체 폭을 쓴다. */
+    .result-actions .align-btn { padding: 6px 10px; }
+    .result-actions .align-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .preview-content[data-align] {
+      width: fit-content;
+      max-width: 100%;
+    }
+    .preview-content[data-align="left"] { margin-left: 0; margin-right: auto; }
+    .preview-content[data-align="center"] { margin-left: auto; margin-right: auto; }
+    .preview-content[data-align="right"] { margin-left: auto; margin-right: 0; }
+
     #result.fullscreen-mode {
       position: fixed;
       inset: 0;
@@ -581,6 +600,9 @@
         <div id="meta" class="meta"></div>
         <div class="result-actions">
           <button id="toggleToolbarBtn" class="secondary">기능 펼치기 ⚙️</button>
+          <button type="button" class="secondary align-btn" data-align="left" title="본문을 좌측으로 이동 (다시 누르면 원래 위치)">좌측</button>
+          <button type="button" class="secondary align-btn" data-align="center" title="본문을 가운데로 이동 (다시 누르면 원래 위치)">가운데</button>
+          <button type="button" class="secondary align-btn" data-align="right" title="본문을 우측으로 이동 (다시 누르면 원래 위치)">우측</button>
           <button id="zoomOutBtn" class="secondary">축소 −</button>
           <button id="zoomInBtn" class="secondary">확대 +</button>
           <button id="fullscreenBtn" class="secondary">전체화면 ⛶</button>
@@ -1988,6 +2010,26 @@
         applyPreviewZoom();
       });
     }
+
+    // ===== 본문(나폴리탄) 좌측/가운데/우측 위치 이동 =====
+    // 같은 버튼을 다시 누르면 원래 위치(전체 폭)로 돌아간다.
+    const alignBtns = document.querySelectorAll('.align-btn');
+
+    function applyPreviewAlign(align) {
+      if (align) {
+        previewContentEl.dataset.align = align;
+      } else {
+        delete previewContentEl.dataset.align;
+      }
+      alignBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.align === align));
+    }
+
+    alignBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const next = previewContentEl.dataset.align === btn.dataset.align ? null : btn.dataset.align;
+        applyPreviewAlign(next);
+      });
+    });
 
     // ===== 본문(나폴리탄) 전체화면 토글 =====
     const fullscreenBtn = document.getElementById('fullscreenBtn');
