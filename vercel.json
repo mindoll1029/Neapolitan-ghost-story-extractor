@@ -12,6 +12,10 @@
       "dest": "/api/app"
     },
     {
+      "src": "^/api/version$",
+      "dest": "/api/app"
+    },
+    {
       "src": "/.*",
       "status": 404
     }

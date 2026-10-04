@@ -10,6 +10,7 @@ import time
 import zlib
 from collections import deque
 from copy import copy
+from datetime import datetime, timedelta, timezone
 from ipaddress import ip_address
 from html.parser import HTMLParser
 from threading import BoundedSemaphore, Lock
@@ -562,6 +563,65 @@ def extract_post_body(url: str) -> dict[str, str | int]:
 
 
 DEFAULT_PASTE_BASE_URL = "https://gall.dcinside.com/"
+
+
+VERSION_TZ = timezone(timedelta(hours=9))
+version_cache = None
+version_lock = Lock()
+
+
+def run_git(*args):
+    result = subprocess.run(
+        ["git", *args], cwd=BASE_DIR, capture_output=True, text=True, timeout=3,
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def read_version_info():
+    # Vercel 배포: 커밋 해시는 환경 변수로 오지만 날짜는 없어서 GitHub API로 조회한다.
+    sha = os.environ.get("VERCEL_GIT_COMMIT_SHA", "")
+    if sha:
+        owner = os.environ.get("VERCEL_GIT_REPO_OWNER", "mindoll1029")
+        repo = os.environ.get("VERCEL_GIT_REPO_SLUG", "Neapolitan-ghost-story-extractor")
+        date = ""
+        try:
+            response = requests.get(
+                f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}",
+                headers={"Accept": "application/vnd.github+json"}, timeout=3,
+            )
+            response.raise_for_status()
+            committed = response.json()["commit"]["committer"]["date"]
+            date = datetime.fromisoformat(committed.replace("Z", "+00:00")).astimezone(VERSION_TZ).strftime("%Y.%m.%d")
+        except (requests.RequestException, KeyError, TypeError, ValueError):
+            pass
+        return {"date": date, "commit": sha[:7], "dirty": False}
+
+    # 로컬 실행: git에서 직접 읽고, 커밋 안 된 수정이 있으면 표시한다.
+    try:
+        line = run_git("log", "-1", "--format=%h|%cd", "--date=format:%Y.%m.%d")
+        commit, _, date = line.partition("|")
+        dirty = bool(run_git("status", "--porcelain")) if commit else False
+        return {"date": date, "commit": commit, "dirty": dirty}
+    except (OSError, subprocess.SubprocessError):
+        return {"date": "", "commit": "", "dirty": False}
+
+
+def get_version_info():
+    global version_cache
+    if version_cache:
+        return version_cache
+    info = read_version_info()
+    # 배포 버전은 바뀌지 않으므로 날짜까지 얻은 경우에만 캐시한다. 로컬은 매번 새로 읽는다.
+    if os.environ.get("VERCEL_GIT_COMMIT_SHA") and info["date"]:
+        with version_lock:
+            version_cache = info
+    return info
+
+
+@app.get("/api/version")
+def api_version():
+    return jsonify(get_version_info()), 200, {"Cache-Control": "no-cache"}
 
 
 @app.get("/")

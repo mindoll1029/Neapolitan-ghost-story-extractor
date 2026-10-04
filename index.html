@@ -105,6 +105,15 @@
       gap: 8px;
     }
 
+    .app-version {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0;
+      color: var(--muted);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
     .desc { margin: 0 0 20px; color: var(--muted); line-height: 1.6; }
 
     /* ===== 입력 영역 ===== */
@@ -581,7 +590,7 @@
   <main class="wrap">
     <section class="card">
       <div class="header-row">
-        <h1>나폴리탄 추출기</h1>
+        <h1>나폴리탄 추출기 <span id="appVersion" class="app-version" hidden></span></h1>
         <button id="openSidebarBtn" class="secondary">명작선 보기 📚</button>
       </div>
       <div class="row">
@@ -2052,6 +2061,19 @@
         }
       });
     }
+
+    // 제목 옆 버전 표시: 커밋 날짜 · 커밋 해시 (* = 커밋 안 된 로컬 수정 포함)
+    fetch('/api/version', { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((info) => {
+        if (!info || !info.commit) return;
+        const versionEl = document.getElementById('appVersion');
+        const commit = info.commit + (info.dirty ? '*' : '');
+        versionEl.textContent = info.date ? `v${info.date} · ${commit}` : commit;
+        versionEl.title = info.dirty ? '커밋되지 않은 수정 사항이 포함된 로컬 버전' : `커밋 ${info.commit}`;
+        versionEl.hidden = false;
+      })
+      .catch(() => {});
   </script>
 </body>
 </html>
